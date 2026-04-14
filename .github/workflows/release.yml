@@ -17,73 +17,96 @@ jobs:
         with:
           targets: x86_64-apple-darwin,aarch64-apple-darwin
 
+      - name: Detect package from tag
+        id: meta
+        run: |
+          # Tag format: v0.1.0 (vvpn) or vvpn-v0.1.0 (future packages)
+          TAG=${GITHUB_REF_NAME}
+          if [[ "$TAG" =~ ^v[0-9] ]]; then
+            PKG="vvpn"
+            VERSION=${TAG#v}
+          else
+            PKG=${TAG%%-v*}
+            VERSION=${TAG#*-v}
+          fi
+          echo "package=$PKG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/${{ steps.meta.outputs.package }}
 
       - name: Build x86_64
         run: cargo build --release --target x86_64-apple-darwin
+        working-directory: packages/${{ steps.meta.outputs.package }}
 
       - name: Build aarch64
         run: cargo build --release --target aarch64-apple-darwin
+        working-directory: packages/${{ steps.meta.outputs.package }}
 
       - name: Create universal binary
         run: |
+          PKG=${{ steps.meta.outputs.package }}
           lipo -create \
-            target/x86_64-apple-darwin/release/vvpn \
-            target/aarch64-apple-darwin/release/vvpn \
-            -output vvpn
-          chmod +x vvpn
-          file vvpn
+            packages/$PKG/target/x86_64-apple-darwin/release/$PKG \
+            packages/$PKG/target/aarch64-apple-darwin/release/$PKG \
+            -output $PKG
+          chmod +x $PKG
+          file $PKG
 
       - name: Package
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          tar czf "vvpn-${VERSION}-darwin-universal.tar.gz" vvpn
-          shasum -a 256 "vvpn-${VERSION}-darwin-universal.tar.gz" > sha256.txt
+          PKG=${{ steps.meta.outputs.package }}
+          VERSION=${{ steps.meta.outputs.version }}
+          tar czf "${PKG}-${VERSION}-darwin-universal.tar.gz" "$PKG"
+          shasum -a 256 "${PKG}-${VERSION}-darwin-universal.tar.gz" > sha256.txt
           cat sha256.txt
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
+          PKG=${{ steps.meta.outputs.package }}
+          VERSION=${{ steps.meta.outputs.version }}
           gh release create "$GITHUB_REF_NAME" \
-            "vvpn-${VERSION}-darwin-universal.tar.gz" \
-            --title "v${VERSION}" \
+            "${PKG}-${VERSION}-darwin-universal.tar.gz" \
+            --title "${PKG} v${VERSION}" \
             --generate-notes
 
       - name: Update Homebrew Formula
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION=${GITHUB_REF_NAME#v}
-          SHA256=$(cat sha256.txt | awk '{print $1}')
-          URL="https://github.com/Erchoc/homebrew-vvpn/releases/download/${GITHUB_REF_NAME}/vvpn-${VERSION}-darwin-universal.tar.gz"
+          PKG=${{ steps.meta.outputs.package }}
+          VERSION=${{ steps.meta.outputs.version }}
+          SHA256=$(awk '{print $1}' sha256.txt)
+          URL="https://github.com/Erchoc/homebrew-tap/releases/download/${GITHUB_REF_NAME}/${PKG}-${VERSION}-darwin-universal.tar.gz"
 
-          cat > Formula/vvpn.rb << FORMULA
-          class Vvpn < Formula
+          mkdir -p Formula
+          cat > "Formula/${PKG}.rb" << FORMULA
+          class ${PKG^} < Formula
             desc "Stash VPN 环境诊断工具"
-            homepage "https://github.com/Erchoc/homebrew-vvpn"
+            homepage "https://github.com/Erchoc/homebrew-tap/tree/master/packages/${PKG}"
             url "${URL}"
             sha256 "${SHA256}"
             version "${VERSION}"
             license "MIT"
 
             def install
-              bin.install "vvpn"
+              bin.install "${PKG}"
             end
 
             test do
-              assert_match "vvpn", shell_output("#{bin}/vvpn 2>&1", 0)
+              assert_match "${PKG}", shell_output("#{bin}/${PKG} 2>&1", 0)
             end
           end
           FORMULA
 
-          # Remove leading spaces from heredoc
-          sed -i '' 's/^          //' Formula/vvpn.rb
+          sed -i '' 's/^          //' "Formula/${PKG}.rb"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout main || git checkout master
-          git add Formula/vvpn.rb
-          git commit -m "chore: update formula to v${VERSION}"
+          git add "Formula/${PKG}.rb"
+          git commit -m "chore: update ${PKG} formula to v${VERSION}"
           git push

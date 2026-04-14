@@ -3,16 +3,26 @@ name: CI
 on:
   push:
     branches: [main, master]
+    paths: ["packages/**"]
   pull_request:
     branches: [main, master]
+    paths: ["packages/**"]
 
 jobs:
   check:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        package: [vvpn]
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/${{ matrix.package }}
       - run: cargo check
       - run: cargo test
       - run: cargo clippy -- -D warnings
