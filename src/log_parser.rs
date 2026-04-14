@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
@@ -21,7 +22,15 @@ pub struct LogReport {
     pub recent_errors: Vec<String>,
 }
 
-pub fn scan_logs(stash_dir: &str) -> LogReport {
+/// 从文件名提取日期（如 `2026-04-11-111015.log` → `2026-04-11`）
+fn date_from_filename(path: &Path) -> Option<NaiveDate> {
+    let stem = path.file_stem()?.to_str()?;
+    let date_str = stem.get(..10)?;
+    NaiveDate::parse_from_str(date_str, "%Y-%m-%d").ok()
+}
+
+/// `since` 为 None 时扫描全部日志，否则只扫描 >= since 的日志
+pub fn scan_logs(stash_dir: &str, since: Option<NaiveDate>) -> LogReport {
     let mut report = LogReport {
         file_count: 0,
         error_count: 0,
@@ -42,24 +51,49 @@ pub fn scan_logs(stash_dir: &str) -> LogReport {
             files.sort_by_key(|e| e.file_name());
             for entry in &files {
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("log") {
-                    report.file_count += 1;
-                    parse_core_log(&path, &mut report);
+                if path.extension().and_then(|e| e.to_str()) != Some("log") {
+                    continue;
                 }
+                if let Some(min_date) = since {
+                    if let Some(file_date) = date_from_filename(&path) {
+                        if file_date < min_date {
+                            continue;
+                        }
+                    }
+                }
+                report.file_count += 1;
+                parse_core_log(&path, &mut report);
             }
         }
     }
 
-    // Parse crash logs
+    // Parse crash logs (filtered by file modification time when since is set)
     let crashes_dir = Path::new(stash_dir).join("crashes");
     if crashes_dir.is_dir() {
         if let Ok(entries) = fs::read_dir(&crashes_dir) {
             for entry in entries.filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.extension().and_then(|e| e.to_str()) == Some("log") {
-                    report.file_count += 1;
-                    parse_crash_log(&path, &mut report);
+                if path.extension().and_then(|e| e.to_str()) != Some("log") {
+                    continue;
                 }
+                if let Some(min_date) = since {
+                    // crash logs 文件名格式不一定带日期，用修改时间过滤
+                    let dominated = path
+                        .metadata()
+                        .ok()
+                        .and_then(|m| m.modified().ok())
+                        .map(|t| {
+                            let dt: chrono::DateTime<chrono::Local> = t.into();
+                            dt.date_naive()
+                        });
+                    if let Some(file_date) = dominated {
+                        if file_date < min_date {
+                            continue;
+                        }
+                    }
+                }
+                report.file_count += 1;
+                parse_crash_log(&path, &mut report);
             }
         }
     }
