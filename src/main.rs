@@ -128,6 +128,10 @@ fn cmd_scan(args: &[String]) {
     println!("  时间范围: {range_label}");
 
     let logs = log_parser::scan_logs(&stash_dir, since);
+    if logs.file_count == 0 {
+        println!("  未找到日志文件，没什么可分析的 ✌️");
+        return;
+    }
     println!(
         "  日志文件: {} 个, 错误: {} 条, 警告: {} 条",
         logs.file_count, logs.error_count, logs.warn_count
@@ -140,11 +144,19 @@ fn cmd_scan(args: &[String]) {
     );
 
     let issues = diagnosis::diagnose(&logs, &config);
-    println!(
-        "  发现问题: {} 个 (Top 3 + {} 个小问题)",
-        issues.len(),
-        issues.len().saturating_sub(3)
-    );
+    let problem_count = issues
+        .iter()
+        .filter(|i| i.severity != diagnosis::Severity::Info)
+        .count();
+    let info_count = issues.len() - problem_count;
+    if problem_count == 0 {
+        println!("  未发现问题 👍");
+    } else {
+        println!("  发现问题: {problem_count} 个");
+    }
+    if info_count > 0 {
+        println!("  信息提示: {info_count} 条");
+    }
 
     let html = report::render(&logs, &config, &issues);
     std::fs::write(&report_path, html).expect("写入报告失败");

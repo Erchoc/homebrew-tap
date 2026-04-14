@@ -1,37 +1,30 @@
 # vvpn
 
-Stash VPN 环境诊断工具 —— 扫描 macOS 上 [Stash](https://stash.ws) 的日志与配置，自动分析问题并生成可视化 HTML 诊断报告。
+Stash VPN 环境诊断工具 — 扫描 macOS 上 [Stash](https://stash.ws) 的日志与配置，自动分析问题并生成可视化 HTML 诊断报告。
 
-## 功能
+## 安装
 
-- 解析 Stash Core 日志，提取错误/警告模式（StashLink 崩溃、NAT 检测失败、代理组无可用节点等）
-- 解析 `config.yaml`，统计节点、代理组、分流规则、DNS、端口等配置信息
-- 自动诊断常见问题，按严重程度（严重 / 警告 / 提示）排序
-- 生成深色主题 HTML 报告，包含 Top 3 问题、错误分布图表、节点地区/线路分布等
-
-## 开发
+### Homebrew（推荐）
 
 ```bash
-# debug 构建 + 运行，报告输出到 ./output/
-cargo run -- scan
-cargo run -- open
+brew tap erchoc/vvpn https://github.com/Erchoc/vvpn
+brew install vvpn
 ```
 
-## 构建发布
+### 手动安装
 
-```bash
-# 生成 macOS 通用二进制 (x86_64 + aarch64) 到 release/
-./build-release.sh
-
-# 或安装到系统
-cargo install --path .
-```
+从 [Releases](https://github.com/Erchoc/vvpn/releases) 下载 macOS 通用二进制，放到 `$PATH` 中即可。
 
 ## 使用
 
 ```bash
-vvpn scan    # 扫描 Stash 目录，生成诊断报告
-vvpn open    # 在浏览器中打开报告
+vvpn scan                  # 扫描全部日志并生成报告
+vvpn scan --today          # 仅分析今天的日志
+vvpn scan --week           # 仅分析最近 7 天
+vvpn scan --month          # 仅分析最近 30 天
+vvpn open                  # 在浏览器中打开诊断报告
+vvpn cd                    # 进入 Stash 数据目录
+vvpn clean                 # 清除 Stash 日志
 ```
 
 | 模式 | 报告输出路径 |
@@ -39,7 +32,20 @@ vvpn open    # 在浏览器中打开报告
 | 开发 (`cargo run`) | `./output/vvpn_report.html` |
 | 发布 (release 二进制) | `~/Downloads/vvpn_report.html` |
 
-Stash 数据目录：`~/Library/Application Support/Stash/Core`
+## 功能
+
+- 解析 Stash Core 日志，提取错误/警告模式（StashLink 崩溃、NAT 检测失败、代理组无可用节点等）
+- 解析 `config.yaml`，统计节点、代理组、分流规则、DNS、端口等配置信息
+- 自动诊断常见问题，按严重程度（严重 / 警告 / 提示）排序
+- 生成深色主题 HTML 报告，包含 Top 问题、错误分布图表、节点地区/线路分布等
+
+## 开发
+
+```bash
+cargo run -- scan          # debug 模式，报告输出到 ./output/
+cargo run -- open          # 打开报告
+./build-release.sh         # 构建 macOS 通用二进制到 release/
+```
 
 ## 项目结构
 
@@ -51,12 +57,6 @@ src/
 ├── diagnosis.rs      # 规则引擎，根据日志和配置生成问题列表
 └── report.rs         # HTML 报告渲染（深色主题，响应式布局）
 ```
-
-## 依赖
-
-- `regex` — 日志行匹配
-- `chrono` — 报告时间戳
-- `serde` + `serde_yaml` — Stash 配置文件解析
 
 ## License
 
