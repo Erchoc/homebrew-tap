@@ -49,7 +49,7 @@ fn print_usage() {
   vvpn - Stash VPN 环境诊断工具
 
   用法:
-    vvpn cd                               打印 Stash 目录路径（配合 cd "$(vvpn cd)" 使用）
+    vvpn cd                               进入 Stash 目录（启动子 shell，exit 退出）
     vvpn scan [--today|--week|--month]    扫描并生成报告（默认全部日志）
     vvpn open                             在浏览器中打开诊断报告
     vvpn clean                            清除 Stash 日志
@@ -102,8 +102,15 @@ fn cmd_cd() {
         eprintln!("错误: Stash 目录不存在: {dir}");
         std::process::exit(1);
     }
-    // 输出路径供 shell 使用: cd "$(vvpn cd)"
-    println!("{dir}");
+
+    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    eprintln!("进入 Stash 目录（exit 退出）: {dir}");
+    let status = Command::new(&shell)
+        .current_dir(&dir)
+        .status()
+        .expect("启动 shell 失败");
+
+    std::process::exit(status.code().unwrap_or(1));
 }
 
 fn cmd_scan(args: &[String]) {
