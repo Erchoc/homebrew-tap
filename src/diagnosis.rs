@@ -17,24 +17,6 @@ pub enum Severity {
     Info,
 }
 
-impl Severity {
-    pub fn label(&self) -> &str {
-        match self {
-            Severity::Critical => "严重",
-            Severity::Warning => "警告",
-            Severity::Info => "提示",
-        }
-    }
-
-    pub fn color(&self) -> &str {
-        match self {
-            Severity::Critical => "#ef4444",
-            Severity::Warning => "#f59e0b",
-            Severity::Info => "#3b82f6",
-        }
-    }
-}
-
 pub fn diagnose(logs: &LogReport, config: &ConfigReport) -> Vec<Issue> {
     let mut issues = Vec::new();
 

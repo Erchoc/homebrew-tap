@@ -28,87 +28,119 @@ pub fn render(logs: &LogReport, config: &ConfigReport, issues: &[Issue]) -> Stri
 </style>
 </head>
 <body>
-<div class="container">
+<div class="page">
 
-<header>
-  <h1>VPN 环境诊断报告</h1>
-  <p class="subtitle">由 vvpn 生成于 {now} · 数据来源: Stash for macOS</p>
+<!-- Hero -->
+<header class="hero">
+  <div class="hero-inner">
+    <div class="hero-badge">DIAGNOSTICS</div>
+    <h1>VPN 环境诊断报告</h1>
+    <p class="hero-sub">vvpn · {now} · Stash for macOS</p>
+  </div>
 </header>
 
-<!-- Top 3 Issues -->
-<section class="top-issues">
-  <h2>最需要关注的问题</h2>
-  <div class="issue-cards">
-    {top_issues_html}
+<!-- Stats Bar -->
+<section class="stats-bar">
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-item">
+        <span class="stat-value">{proxy_count}</span>
+        <span class="stat-name">NODES</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{group_count}</span>
+        <span class="stat-name">GROUPS</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{rule_count}</span>
+        <span class="stat-name">RULES</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{file_count}</span>
+        <span class="stat-name">LOG FILES</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value accent-red">{error_count}</span>
+        <span class="stat-name">ERRORS</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value accent-amber">{warn_count}</span>
+        <span class="stat-name">WARNINGS</span>
+      </div>
+    </div>
   </div>
 </section>
 
-<!-- Dashboard -->
-<section class="dashboard">
-  <h2>环境概览</h2>
-  <div class="grid">
-    {subscription_card}
-    {stats_card}
-    {ports_card}
+<!-- Top Issues -->
+<section class="section-dark">
+  <div class="container">
+    <div class="section-label">TOP ISSUES</div>
+    <h2>最需要关注的问题</h2>
+    <div class="issues-stack">
+      {top_issues_html}
+    </div>
+  </div>
+</section>
+
+<!-- Subscription & Config -->
+<section class="section-light">
+  <div class="container">
+    <div class="section-label">OVERVIEW</div>
+    <h2 class="heading-dark">环境概览</h2>
+    <div class="grid-3">
+      {subscription_card}
+      {ports_card}
+      {dns_card}
+    </div>
   </div>
 </section>
 
 <!-- Error Distribution -->
-<section class="charts">
-  <h2>错误分布</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>按类型分布</h3>
-      <div class="bar-chart">
-        {error_pattern_bars}
+<section class="section-dark">
+  <div class="container">
+    <div class="section-label">ERROR ANALYSIS</div>
+    <h2>错误分布</h2>
+    <div class="grid-2">
+      <div class="panel">
+        <h3>按类型</h3>
+        <div class="bar-chart">
+          {error_pattern_bars}
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <h3>按模块分布</h3>
-      <div class="bar-chart">
-        {error_module_bars}
+      <div class="panel">
+        <h3>按模块</h3>
+        <div class="bar-chart">
+          {error_module_bars}
+        </div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- Node Distribution -->
-<section class="nodes">
-  <h2>节点分布</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>按地区</h3>
-      <div class="bar-chart">
-        {region_bars}
+<section class="section-light">
+  <div class="container">
+    <div class="section-label">INFRASTRUCTURE</div>
+    <h2 class="heading-dark">节点分布</h2>
+    <div class="grid-2">
+      <div class="panel-light">
+        <h3 class="h3-dark">按地区</h3>
+        <div class="bar-chart">
+          {region_bars}
+        </div>
       </div>
-    </div>
-    <div class="card">
-      <h3>按线路等级</h3>
-      <div class="bar-chart">
-        {tier_bars}
+      <div class="panel-light">
+        <h3 class="h3-dark">线路等级 &amp; 协议</h3>
+        <div class="bar-chart">
+          {tier_bars}
+        </div>
+        <div class="detail-table">
+          <div class="detail-row"><span class="detail-key">协议</span><span class="detail-val">{protocol_info}</span></div>
+          <div class="detail-row"><span class="detail-key">加密</span><span class="detail-val">{cipher_info}</span></div>
+          <div class="detail-row"><span class="detail-key">独立服务器</span><span class="detail-val">{server_count} 台</span></div>
+          <div class="detail-row"><span class="detail-key">密码统一</span><span class="detail-val">{password_uniform}</span></div>
+        </div>
       </div>
-    </div>
-  </div>
-</section>
-
-<!-- Node Detail -->
-<section class="node-detail">
-  <h2>节点技术详情</h2>
-  <div class="grid">
-    <div class="card">
-      <h3>协议 &amp; 加密</h3>
-      <table>
-        <tr><td>协议类型</td><td>{protocol_info}</td></tr>
-        <tr><td>加密方式</td><td>{cipher_info}</td></tr>
-        <tr><td>独立服务器</td><td>{server_count} 台</td></tr>
-        <tr><td>密码统一</td><td>{password_uniform}</td></tr>
-      </table>
-    </div>
-    <div class="card">
-      <h3>DNS 配置</h3>
-      <ul class="dns-list">
-        {dns_list}
-      </ul>
     </div>
   </div>
 </section>
@@ -117,17 +149,25 @@ pub fn render(logs: &LogReport, config: &ConfigReport, issues: &[Issue]) -> Stri
 {minor_issues_html}
 
 <!-- Recent Errors -->
-<section class="recent-errors">
-  <details>
-    <summary>最近的错误日志 ({recent_count} 条)</summary>
-    <div class="log-lines">
-      {recent_errors_html}
+<section class="section-dark">
+  <div class="container">
+    <div class="section-label">RAW LOGS</div>
+    <h2>最近的错误日志</h2>
+    <div class="log-panel">
+      <div class="log-header">
+        <span>{recent_count} 条记录</span>
+      </div>
+      <div class="log-body">
+        {recent_errors_html}
+      </div>
     </div>
-  </details>
+  </div>
 </section>
 
 <footer>
-  <p>vvpn v0.1.0 · Stash VPN 环境诊断工具</p>
+  <div class="container">
+    <p>vvpn v0.1.0</p>
+  </div>
 </footer>
 
 </div>
@@ -135,19 +175,24 @@ pub fn render(logs: &LogReport, config: &ConfigReport, issues: &[Issue]) -> Stri
 </html>"##,
         css = CSS,
         now = now,
+        proxy_count = config.proxy_count,
+        group_count = config.group_count,
+        rule_count = config.rule_count,
+        file_count = logs.file_count,
+        error_count = logs.error_count,
+        warn_count = logs.warn_count,
         top_issues_html = render_top_issues(top_issues),
         subscription_card = render_subscription_card(config),
-        stats_card = render_stats_card(logs, config),
         ports_card = render_ports_card(config),
-        error_pattern_bars = render_bar_chart(&logs.error_patterns, "#ef4444"),
-        error_module_bars = render_bar_chart(&logs.errors_by_module, "#f59e0b"),
-        region_bars = render_bar_chart(&config.nodes_by_region, "#3b82f6"),
-        tier_bars = render_bar_chart(&config.nodes_by_tier, "#8b5cf6"),
+        dns_card = render_dns_card(config),
+        error_pattern_bars = render_bar_chart(&logs.error_patterns, "#DA291C"),
+        error_module_bars = render_bar_chart(&logs.errors_by_module, "#8F8F8F"),
+        region_bars = render_bar_chart_dark(&config.nodes_by_region, "#181818"),
+        tier_bars = render_bar_chart_dark(&config.nodes_by_tier, "#DA291C"),
         protocol_info = render_map_inline(&config.nodes_by_type),
         cipher_info = render_map_inline(&config.nodes_by_cipher),
         server_count = config.unique_servers.len(),
         password_uniform = if config.single_password { "是" } else { "否" },
-        dns_list = render_dns_list(&config.dns_servers),
         minor_issues_html = render_minor_issues(minor_issues),
         recent_count = logs.recent_errors.len(),
         recent_errors_html = render_recent_errors(&logs.recent_errors),
@@ -158,54 +203,64 @@ fn render_top_issues(issues: &[Issue]) -> String {
     let mut html = String::new();
     for (i, issue) in issues.iter().enumerate() {
         let num = i + 1;
-        let icon = match issue.severity {
-            Severity::Critical => "!!",
-            Severity::Warning => "!",
-            Severity::Info => "i",
+        let (badge_class, badge_text) = match issue.severity {
+            Severity::Critical => ("badge-critical", "CRITICAL"),
+            Severity::Warning => ("badge-warning", "WARNING"),
+            Severity::Info => ("badge-info", "INFO"),
         };
+
+        // Split solution into numbered steps
+        let steps_html: String = issue
+            .solution
+            .lines()
+            .map(|line| {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    return String::new();
+                }
+                format!(
+                    "<div class=\"step\">{}</div>",
+                    html_escape(trimmed)
+                )
+            })
+            .collect();
+
         html.push_str(&format!(
-            r#"<div class="issue-card" style="border-left: 4px solid {color}">
-  <div class="issue-header">
+            r#"<div class="issue">
+  <div class="issue-top">
     <span class="issue-num">#{num}</span>
-    <span class="issue-badge" style="background:{color}">{icon} {severity}</span>
+    <span class="badge {badge_class}">{badge_text}</span>
   </div>
-  <h3>{title}</h3>
+  <h3 class="issue-title">{title}</h3>
   <p class="issue-desc">{desc}</p>
-  <div class="issue-solution">
-    <strong>解决方案:</strong>
-    <pre>{solution}</pre>
+  <div class="action-box">
+    <div class="action-label">ACTION REQUIRED</div>
+    <div class="action-steps">
+      {steps_html}
+    </div>
   </div>
 </div>"#,
-            color = issue.severity.color(),
-            severity = issue.severity.label(),
             title = html_escape(&issue.title),
             desc = html_escape(&issue.description),
-            solution = html_escape(&issue.solution),
         ));
     }
     html
 }
 
 fn render_subscription_card(config: &ConfigReport) -> String {
-    let provider = config
-        .subscription_provider
-        .as_deref()
-        .unwrap_or("未知");
-    let traffic = config
-        .traffic_info
-        .as_deref()
-        .unwrap_or("未知");
+    let provider = config.subscription_provider.as_deref().unwrap_or("未知");
+    let traffic = config.traffic_info.as_deref().unwrap_or("未知");
     let expiry = config.expiry_info.as_deref().unwrap_or("未知");
 
     format!(
-        r#"<div class="card highlight">
-  <h3>订阅信息</h3>
-  <table>
-    <tr><td>机场</td><td><strong>{provider}</strong></td></tr>
-    <tr><td>流量</td><td>{traffic}</td></tr>
-    <tr><td>到期</td><td>{expiry}</td></tr>
-    <tr><td>模式</td><td>{mode}</td></tr>
-  </table>
+        r#"<div class="info-card accent-border">
+  <div class="card-label">SUBSCRIPTION</div>
+  <div class="card-body">
+    <div class="kv"><span class="k">机场</span><span class="v strong">{provider}</span></div>
+    <div class="kv"><span class="k">流量</span><span class="v">{traffic}</span></div>
+    <div class="kv"><span class="k">到期</span><span class="v">{expiry}</span></div>
+    <div class="kv"><span class="k">模式</span><span class="v">{mode}</span></div>
+  </div>
 </div>"#,
         provider = html_escape(provider),
         traffic = html_escape(traffic),
@@ -214,46 +269,44 @@ fn render_subscription_card(config: &ConfigReport) -> String {
     )
 }
 
-fn render_stats_card(logs: &LogReport, config: &ConfigReport) -> String {
-    format!(
-        r#"<div class="card">
-  <h3>统计概览</h3>
-  <div class="stat-grid">
-    <div class="stat"><span class="stat-num">{}</span><span class="stat-label">节点数</span></div>
-    <div class="stat"><span class="stat-num">{}</span><span class="stat-label">代理组</span></div>
-    <div class="stat"><span class="stat-num">{}</span><span class="stat-label">规则数</span></div>
-    <div class="stat"><span class="stat-num">{}</span><span class="stat-label">日志文件</span></div>
-    <div class="stat"><span class="stat-num err">{}</span><span class="stat-label">错误</span></div>
-    <div class="stat"><span class="stat-num warn">{}</span><span class="stat-label">警告</span></div>
-  </div>
-</div>"#,
-        config.proxy_count,
-        config.group_count,
-        config.rule_count,
-        logs.file_count,
-        logs.error_count,
-        logs.warn_count,
-    )
-}
-
 fn render_ports_card(config: &ConfigReport) -> String {
     let mut rows = String::new();
     let mut ports: Vec<_> = config.ports.iter().collect();
     ports.sort_by_key(|(k, _)| (*k).clone());
     for (name, port) in ports {
-        rows.push_str(&format!("<tr><td>{name}</td><td>{port}</td></tr>"));
+        rows.push_str(&format!(
+            "<div class=\"kv\"><span class=\"k\">{name}</span><span class=\"v\">{port}</span></div>"
+        ));
     }
+
     format!(
-        r#"<div class="card">
-  <h3>端口配置</h3>
-  <table>{rows}</table>
-  <table>
-    <tr><td>IPv6</td><td>{ipv6}</td></tr>
-    <tr><td>局域网共享</td><td>{lan}</td></tr>
-  </table>
+        r#"<div class="info-card">
+  <div class="card-label">PORTS</div>
+  <div class="card-body">
+    {rows}
+    <div class="kv"><span class="k">IPv6</span><span class="v">{ipv6}</span></div>
+    <div class="kv"><span class="k">局域网</span><span class="v">{lan}</span></div>
+  </div>
 </div>"#,
         ipv6 = if config.ipv6 { "启用" } else { "禁用" },
         lan = if config.allow_lan { "启用" } else { "禁用" },
+    )
+}
+
+fn render_dns_card(config: &ConfigReport) -> String {
+    let items: String = config
+        .dns_servers
+        .iter()
+        .map(|s| format!("<div class=\"dns-item\">{}</div>", html_escape(s)))
+        .collect();
+
+    format!(
+        r#"<div class="info-card">
+  <div class="card-label">DNS</div>
+  <div class="card-body">
+    {items}
+  </div>
+</div>"#
     )
 }
 
@@ -261,7 +314,6 @@ fn render_bar_chart(data: &std::collections::HashMap<String, usize>, color: &str
     let mut items: Vec<_> = data.iter().collect();
     items.sort_by(|a, b| b.1.cmp(a.1));
     items.truncate(10);
-
     let max_val = items.first().map(|(_, v)| **v).unwrap_or(1).max(1);
 
     let mut html = String::new();
@@ -269,13 +321,34 @@ fn render_bar_chart(data: &std::collections::HashMap<String, usize>, color: &str
         let pct = (**count as f64 / max_val as f64 * 100.0) as u32;
         html.push_str(&format!(
             r#"<div class="bar-row">
-  <span class="bar-label" title="{label}">{short_label}</span>
+  <span class="bar-label" title="{full}">{short}</span>
   <div class="bar-track"><div class="bar-fill" style="width:{pct}%;background:{color}"></div></div>
   <span class="bar-value">{count}</span>
 </div>"#,
-            label = html_escape(label),
-            short_label = html_escape(&truncate_str(label, 20)),
-            count = count,
+            full = html_escape(label),
+            short = html_escape(&truncate_str(label, 22)),
+        ));
+    }
+    html
+}
+
+fn render_bar_chart_dark(data: &std::collections::HashMap<String, usize>, color: &str) -> String {
+    let mut items: Vec<_> = data.iter().collect();
+    items.sort_by(|a, b| b.1.cmp(a.1));
+    items.truncate(10);
+    let max_val = items.first().map(|(_, v)| **v).unwrap_or(1).max(1);
+
+    let mut html = String::new();
+    for (label, count) in &items {
+        let pct = (**count as f64 / max_val as f64 * 100.0) as u32;
+        html.push_str(&format!(
+            r#"<div class="bar-row">
+  <span class="bar-label dark-label" title="{full}">{short}</span>
+  <div class="bar-track light-track"><div class="bar-fill" style="width:{pct}%;background:{color}"></div></div>
+  <span class="bar-value dark-label">{count}</span>
+</div>"#,
+            full = html_escape(label),
+            short = html_escape(&truncate_str(label, 22)),
         ));
     }
     html
@@ -287,31 +360,51 @@ fn render_minor_issues(issues: &[Issue]) -> String {
     }
     let mut items = String::new();
     for issue in issues {
+        let (badge_class, badge_text) = match issue.severity {
+            Severity::Critical => ("badge-critical", "CRITICAL"),
+            Severity::Warning => ("badge-warning", "WARNING"),
+            Severity::Info => ("badge-info", "INFO"),
+        };
+
+        let steps_html: String = issue
+            .solution
+            .lines()
+            .map(|line| {
+                let trimmed = line.trim();
+                if trimmed.is_empty() {
+                    return String::new();
+                }
+                format!("<div class=\"step\">{}</div>", html_escape(trimmed))
+            })
+            .collect();
+
         items.push_str(&format!(
-            r#"<details class="minor-issue">
-  <summary>
-    <span class="issue-badge small" style="background:{color}">{severity}</span>
-    {title}
-  </summary>
-  <div class="minor-body">
-    <p>{desc}</p>
-    <div class="issue-solution">
-      <strong>建议:</strong>
-      <pre>{solution}</pre>
+            r#"<div class="minor-item">
+  <details>
+    <summary>
+      <span class="badge {badge_class} badge-sm">{badge_text}</span>
+      <span class="minor-title">{title}</span>
+    </summary>
+    <div class="minor-body">
+      <p>{desc}</p>
+      <div class="action-box">
+        <div class="action-label">SUGGESTION</div>
+        <div class="action-steps">{steps_html}</div>
+      </div>
     </div>
-  </div>
-</details>"#,
-            color = issue.severity.color(),
-            severity = issue.severity.label(),
+  </details>
+</div>"#,
             title = html_escape(&issue.title),
             desc = html_escape(&issue.description),
-            solution = html_escape(&issue.solution),
         ));
     }
     format!(
-        r#"<section class="minor-issues">
-  <h2>其他问题 (点击展开)</h2>
-  {items}
+        r#"<section class="section-dark">
+  <div class="container">
+    <div class="section-label">OTHER ISSUES</div>
+    <h2>其他问题</h2>
+    <div class="minor-stack">{items}</div>
+  </div>
 </section>"#
     )
 }
@@ -325,19 +418,8 @@ fn render_recent_errors(errors: &[String]) -> String {
         .join("\n")
 }
 
-fn render_dns_list(servers: &[String]) -> String {
-    servers
-        .iter()
-        .map(|s| format!("<li>{}</li>", html_escape(s)))
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 fn render_map_inline(map: &std::collections::HashMap<String, usize>) -> String {
-    let items: Vec<_> = map
-        .iter()
-        .map(|(k, v)| format!("{k} ({v})"))
-        .collect();
+    let items: Vec<_> = map.iter().map(|(k, v)| format!("{k} ({v})")).collect();
     html_escape(&items.join(", "))
 }
 
@@ -358,330 +440,458 @@ fn html_escape(s: &str) -> String {
 }
 
 const CSS: &str = r#"
-:root {
-  --bg: #0f172a;
-  --surface: #1e293b;
-  --surface2: #334155;
-  --text: #e2e8f0;
-  --text-dim: #94a3b8;
-  --accent: #38bdf8;
-  --red: #ef4444;
-  --amber: #f59e0b;
-  --blue: #3b82f6;
-  --purple: #8b5cf6;
-  --green: #22c55e;
-  --radius: 12px;
-}
+/* ── Reset ─────────────────────────────────── */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+/* ── Hide scrollbar, keep scroll ───────────── */
+html { overflow-y: scroll; scrollbar-width: none; }
+html::-webkit-scrollbar { display: none; }
 
+/* ── Base ──────────────────────────────────── */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
-  background: var(--bg);
-  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  background: #000;
+  color: #fff;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
+.page { overflow: hidden; }
+
 .container {
   max-width: 960px;
   margin: 0 auto;
-  padding: 2rem 1.5rem;
+  padding: 0 24px;
 }
 
-header {
-  text-align: center;
-  margin-bottom: 3rem;
-  padding-bottom: 2rem;
-  border-bottom: 1px solid var(--surface2);
-}
-
-header h1 {
-  font-size: 2rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), var(--purple));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 0.5rem;
-}
-
-.subtitle {
-  color: var(--text-dim);
-  font-size: 0.875rem;
-}
-
+/* ── Typography ────────────────────────────── */
 h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: var(--text);
+  font-size: 26px;
+  font-weight: 500;
+  color: #fff;
+  margin-bottom: 32px;
+  line-height: 1.2;
 }
+
+h2.heading-dark { color: #181818; }
 
 h3 {
-  font-size: 0.95rem;
+  font-size: 13px;
   font-weight: 600;
-  margin-bottom: 0.75rem;
-  color: var(--text-dim);
+  color: #8F8F8F;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
 }
 
-section {
-  margin-bottom: 2.5rem;
+h3.h3-dark { color: #666; }
+
+.section-label {
+  font-size: 11px;
+  font-weight: 400;
+  color: #8F8F8F;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
 }
 
-/* Cards */
-.card {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 1.25rem;
+/* ── Sections ──────────────────────────────── */
+.section-dark {
+  background: #000;
+  padding: 64px 0;
 }
 
-.card.highlight {
-  border: 1px solid var(--accent);
-  background: linear-gradient(135deg, rgba(56,189,248,0.08), rgba(139,92,246,0.05));
+.section-light {
+  background: #fff;
+  padding: 64px 0;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-}
+.section-light .section-label { color: #969696; }
 
-/* Tables */
-table { width: 100%; border-collapse: collapse; }
-td {
-  padding: 0.4rem 0;
-  border-bottom: 1px solid var(--surface2);
-  font-size: 0.875rem;
-}
-td:first-child { color: var(--text-dim); width: 40%; }
-td:last-child { text-align: right; }
-
-/* Stats */
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
+/* ── Hero ──────────────────────────────────── */
+.hero {
+  background: #000;
+  padding: 80px 0 48px;
   text-align: center;
 }
 
-.stat-num {
+.hero-inner { max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+.hero-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: #DA291C;
+  border: 1px solid #DA291C;
+  border-radius: 2px;
+  padding: 4px 16px;
+  margin-bottom: 24px;
+}
+
+.hero h1 {
+  font-size: 36px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1.15;
+  margin-bottom: 12px;
+}
+
+.hero-sub {
+  font-size: 13px;
+  color: #8F8F8F;
+  letter-spacing: 0.5px;
+}
+
+/* ── Stats Bar ─────────────────────────────── */
+.stats-bar {
+  background: #303030;
+  padding: 32px 0;
+  border-top: 1px solid #444;
+  border-bottom: 1px solid #444;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.stat-item { flex: 1; }
+
+.stat-value {
   display: block;
-  font-size: 1.5rem;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--accent);
+  color: #fff;
+  line-height: 1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
 }
 
-.stat-num.err { color: var(--red); }
-.stat-num.warn { color: var(--amber); }
+.stat-value.accent-red { color: #DA291C; }
+.stat-value.accent-amber { color: #F6E500; }
 
-.stat-label {
-  font-size: 0.75rem;
-  color: var(--text-dim);
+.stat-name {
+  font-size: 11px;
+  font-weight: 400;
+  color: #8F8F8F;
+  letter-spacing: 1px;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
-/* Issue cards */
-.issue-cards {
-  display: grid;
-  gap: 1rem;
+/* ── Issues ─────────────────────────────────── */
+.issues-stack { display: flex; flex-direction: column; gap: 20px; }
+
+.issue {
+  background: #181818;
+  border-radius: 2px;
+  padding: 32px;
+  border-left: 3px solid #DA291C;
 }
 
-.issue-card {
-  background: var(--surface);
-  border-radius: var(--radius);
-  padding: 1.25rem;
-  transition: transform 0.2s;
-}
-
-.issue-card:hover { transform: translateY(-2px); }
-
-.issue-header {
+.issue-top {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
 .issue-num {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--text-dim);
+  font-size: 24px;
+  font-weight: 700;
+  color: #303030;
 }
 
-.issue-badge {
+.badge {
   display: inline-block;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 2px;
+}
+
+.badge-sm { font-size: 10px; padding: 2px 8px; }
+
+.badge-critical { background: #DA291C; color: #fff; }
+.badge-warning { background: #F6E500; color: #181818; }
+.badge-info { background: #4C98B9; color: #fff; }
+
+.issue-title {
+  font-size: 18px;
+  font-weight: 700;
   color: #fff;
-}
-
-.issue-badge.small {
-  font-size: 0.7rem;
-  padding: 0.1rem 0.5rem;
-}
-
-.issue-card h3 {
-  color: var(--text);
-  font-size: 1.05rem;
-  margin-bottom: 0.5rem;
+  line-height: 1.3;
+  margin-bottom: 8px;
 }
 
 .issue-desc {
-  color: var(--text-dim);
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
-}
-
-.issue-solution {
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
-}
-
-.issue-solution strong {
-  color: var(--green);
-  display: block;
-  margin-bottom: 0.4rem;
-}
-
-.issue-solution pre {
-  white-space: pre-wrap;
-  font-family: inherit;
-  color: var(--text-dim);
-  font-size: 0.825rem;
+  font-size: 14px;
+  color: #8F8F8F;
   line-height: 1.7;
+  margin-bottom: 20px;
 }
 
-/* Bar chart */
-.bar-chart { display: flex; flex-direction: column; gap: 0.5rem; }
+/* ── Action Box ────────────────────────────── */
+.action-box {
+  background: #000;
+  border: 1px solid #303030;
+  border-radius: 2px;
+  padding: 20px 24px;
+}
+
+.action-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #DA291C;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.action-steps { display: flex; flex-direction: column; gap: 6px; }
+
+.step {
+  font-size: 14px;
+  color: #D2D2D2;
+  line-height: 1.6;
+  padding-left: 8px;
+  border-left: 2px solid #303030;
+}
+
+/* ── Info Cards ─────────────────────────────── */
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.info-card {
+  background: #f7f7f7;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.info-card.accent-border { border-top: 3px solid #DA291C; }
+
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #969696;
+  padding: 16px 20px 0;
+}
+
+.card-body { padding: 12px 20px 20px; }
+
+.kv {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e5e5;
+  font-size: 13px;
+}
+
+.kv:last-child { border-bottom: none; }
+
+.k { color: #8F8F8F; }
+.v { color: #181818; text-align: right; }
+.v.strong { font-weight: 700; color: #181818; }
+
+.dns-item {
+  font-family: "SF Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 12px;
+  color: #666;
+  padding: 4px 0;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.dns-item:last-child { border-bottom: none; }
+
+/* ── Panels (dark bg) ──────────────────────── */
+.panel {
+  background: #181818;
+  border-radius: 2px;
+  padding: 24px;
+}
+
+.panel-light {
+  background: #f7f7f7;
+  border-radius: 2px;
+  padding: 24px;
+}
+
+.detail-table {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e5e5;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.detail-key { color: #8F8F8F; }
+.detail-val { color: #181818; text-align: right; }
+
+/* ── Bar Chart ─────────────────────────────── */
+.bar-chart { display: flex; flex-direction: column; gap: 8px; }
 
 .bar-row {
   display: grid;
-  grid-template-columns: 140px 1fr 50px;
+  grid-template-columns: 150px 1fr 44px;
   align-items: center;
-  gap: 0.5rem;
+  gap: 10px;
 }
 
 .bar-label {
-  font-size: 0.8rem;
-  color: var(--text-dim);
+  font-size: 12px;
+  color: #8F8F8F;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.bar-label.dark-label { color: #666; }
+
 .bar-track {
-  height: 20px;
-  background: var(--bg);
-  border-radius: 4px;
+  height: 18px;
+  background: #303030;
+  border-radius: 2px;
   overflow: hidden;
 }
+
+.bar-track.light-track { background: #e0e0e0; }
 
 .bar-fill {
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.6s ease;
-  min-width: 4px;
+  border-radius: 2px;
+  min-width: 3px;
 }
 
 .bar-value {
-  font-size: 0.8rem;
-  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
   text-align: right;
-  font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-/* Minor issues */
-.minor-issues details {
-  background: var(--surface);
-  border-radius: var(--radius);
-  margin-bottom: 0.5rem;
+.bar-value.dark-label { color: #181818; }
+
+/* ── Minor Issues ──────────────────────────── */
+.minor-stack { display: flex; flex-direction: column; gap: 4px; }
+
+.minor-item {
+  background: #181818;
+  border-radius: 2px;
   overflow: hidden;
 }
 
-.minor-issues summary {
-  padding: 0.75rem 1rem;
+.minor-item summary {
+  padding: 14px 20px;
   cursor: pointer;
-  font-size: 0.9rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  user-select: none;
+  gap: 10px;
+  font-size: 14px;
+  color: #D2D2D2;
+  list-style: none;
 }
 
-.minor-issues summary:hover { background: var(--surface2); }
+.minor-item summary::-webkit-details-marker { display: none; }
+.minor-item summary::before {
+  content: "+";
+  font-size: 16px;
+  font-weight: 700;
+  color: #666;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.minor-item details[open] summary::before { content: "−"; }
+
+.minor-item summary:hover { background: #222; }
+
+.minor-title { flex: 1; }
 
 .minor-body {
-  padding: 0 1rem 1rem;
-  font-size: 0.85rem;
-  color: var(--text-dim);
+  padding: 0 20px 20px 48px;
 }
 
-.minor-body p { margin-bottom: 0.75rem; }
-
-/* DNS */
-.dns-list {
-  list-style: none;
-  font-size: 0.85rem;
-  font-family: "SF Mono", "Fira Code", monospace;
-}
-.dns-list li {
-  padding: 0.3rem 0;
-  border-bottom: 1px solid var(--surface2);
-  color: var(--text-dim);
+.minor-body p {
+  font-size: 13px;
+  color: #8F8F8F;
+  line-height: 1.7;
+  margin-bottom: 16px;
 }
 
-/* Recent errors */
-.recent-errors details {
-  background: var(--surface);
-  border-radius: var(--radius);
+/* ── Log Panel ─────────────────────────────── */
+.log-panel {
+  background: #181818;
+  border-radius: 2px;
   overflow: hidden;
 }
 
-.recent-errors summary {
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  font-size: 0.9rem;
-  color: var(--text-dim);
+.log-header {
+  padding: 12px 20px;
+  font-size: 12px;
+  color: #8F8F8F;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #303030;
 }
 
-.log-lines {
-  max-height: 400px;
+.log-body {
+  max-height: 360px;
   overflow-y: auto;
-  padding: 0 1rem 1rem;
+  scrollbar-width: none;
+  padding: 12px 20px;
 }
+
+.log-body::-webkit-scrollbar { display: none; }
 
 .log-line {
-  font-family: "SF Mono", "Fira Code", monospace;
-  font-size: 0.75rem;
-  padding: 0.25rem 0;
+  font-family: "SF Mono", "Fira Code", ui-monospace, monospace;
+  font-size: 11px;
+  color: #8F8F8F;
+  padding: 3px 0;
   border-bottom: 1px solid rgba(255,255,255,0.03);
-  color: var(--text-dim);
   word-break: break-all;
+  line-height: 1.5;
 }
 
-/* Footer */
+/* ── Footer ────────────────────────────────── */
 footer {
+  background: #303030;
+  padding: 24px 0;
   text-align: center;
-  padding-top: 2rem;
-  border-top: 1px solid var(--surface2);
-  color: var(--text-dim);
-  font-size: 0.8rem;
+  font-size: 12px;
+  color: #8F8F8F;
+  letter-spacing: 0.5px;
 }
 
-/* Responsive */
-@media (max-width: 640px) {
-  .container { padding: 1rem; }
-  header h1 { font-size: 1.5rem; }
-  .grid { grid-template-columns: 1fr; }
-  .bar-row { grid-template-columns: 100px 1fr 40px; }
-  .stat-grid { grid-template-columns: repeat(2, 1fr); }
-  .issue-card { padding: 1rem; }
+/* ── Responsive ────────────────────────────── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 26px; }
+  .hero { padding: 48px 0 32px; }
+  .section-dark, .section-light { padding: 40px 0; }
+  h2 { font-size: 22px; margin-bottom: 24px; }
+  .grid-3 { grid-template-columns: 1fr; }
+  .grid-2 { grid-template-columns: 1fr; }
+  .stats-row { flex-wrap: wrap; gap: 16px; }
+  .stat-item { flex: 0 0 calc(33.33% - 12px); }
+  .stat-value { font-size: 22px; }
+  .issue { padding: 20px; }
+  .bar-row { grid-template-columns: 100px 1fr 36px; }
+  .action-box { padding: 16px; }
 }
 "#;
