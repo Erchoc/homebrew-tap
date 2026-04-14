@@ -57,12 +57,12 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           SHA256=$(cat sha256.txt | awk '{print $1}')
-          URL="https://github.com/Erchoc/vvpn/releases/download/${GITHUB_REF_NAME}/vvpn-${VERSION}-darwin-universal.tar.gz"
+          URL="https://github.com/Erchoc/homebrew-vvpn/releases/download/${GITHUB_REF_NAME}/vvpn-${VERSION}-darwin-universal.tar.gz"
 
           cat > Formula/vvpn.rb << FORMULA
           class Vvpn < Formula
             desc "Stash VPN 环境诊断工具"
-            homepage "https://github.com/Erchoc/vvpn"
+            homepage "https://github.com/Erchoc/homebrew-vvpn"
             url "${URL}"
             sha256 "${SHA256}"
             version "${VERSION}"

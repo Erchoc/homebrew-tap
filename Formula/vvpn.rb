@@ -1,7 +1,7 @@
 class Vvpn < Formula
   desc "Stash VPN 环境诊断工具"
-  homepage "https://github.com/Erchoc/vvpn"
-  url "https://github.com/Erchoc/vvpn/releases/download/v0.1.0/vvpn-0.1.0-darwin-universal.tar.gz"
+  homepage "https://github.com/Erchoc/homebrew-vvpn"
+  url "https://github.com/Erchoc/homebrew-vvpn/releases/download/v0.1.0/vvpn-0.1.0-darwin-universal.tar.gz"
   sha256 "PLACEHOLDER"
   version "0.1.0"
   license "MIT"

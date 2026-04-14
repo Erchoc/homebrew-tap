@@ -7,13 +7,12 @@ Stash VPN 环境诊断工具 — 扫描 macOS 上 [Stash](https://stash.ws) 的�
 ### Homebrew（推荐）
 
 ```bash
-brew tap erchoc/vvpn https://github.com/Erchoc/vvpn
-brew install vvpn
+brew install erchoc/vvpn/vvpn
 ```
 
 ### 手动安装
 
-从 [Releases](https://github.com/Erchoc/vvpn/releases) 下载 macOS 通用二进制，放到 `$PATH` 中即可。
+从 [Releases](https://github.com/Erchoc/homebrew-vvpn/releases) 下载 macOS 通用二进制，放到 `$PATH` 中即可。
 
 ## 使用
 
