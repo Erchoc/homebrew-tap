@@ -21,18 +21,18 @@ jobs:
     name: brew style & audit
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: brew style
-        run: brew style --tap "$(pwd)"
+        run: brew style Formula/*.rb
 
       - name: brew audit
         run: |
           for f in Formula/*.rb; do
-            brew audit --strict --online "$f"
+            brew audit --strict --online --formula "$f"
           done
 
   install:
@@ -44,10 +44,10 @@ jobs:
         os: [macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Homebrew
-        uses: Homebrew/actions/setup-homebrew@master
+        uses: Homebrew/actions/setup-homebrew@main
 
       - name: brew install & test each formula
         run: |
