@@ -25,6 +25,10 @@ brew install erchoc/tap/<formula>
 npm install -g @erchoc/<tool>
 ```
 
+> The leading `@` is required. `npm install -g erchoc/<tool>` (without `@`)
+> is npm's GitHub shorthand and will try to clone `github.com/erchoc/<tool>`
+> instead — that is **not** the same thing.
+
 No `postinstall` download, no network at install time, works under
 `--ignore-scripts`. Supports macOS (arm64 + x64) and Linux (x64 + arm64).
 
@@ -70,6 +74,22 @@ per-platform `sha256`. Releasing both channels is therefore:
 2. Tag `npm-<tool>-v<version>` and push — the `publish-npm` workflow
    downloads the matching binaries, verifies their sha256 against the
    formula, and publishes `@erchoc/<tool>` to npmjs.org.
+
+## Verifying an install
+
+```bash
+# Homebrew
+which cb                          # → $(brew --prefix)/bin/cb
+cb --version
+
+# npm
+npm ls -g --depth=0 @erchoc/cb    # confirm the scoped package is installed
+which cb                          # → <npm-prefix>/bin/cb
+cb --version
+
+# Both channels deliver the same binary from the upstream GitHub Release.
+# Version strings are identical by construction.
+```
 
 ## Self-publishing from your own repo
 

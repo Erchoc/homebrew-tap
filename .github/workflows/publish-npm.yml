@@ -70,6 +70,20 @@ jobs:
             --formula "Formula/${{ steps.resolve.outputs.tool }}.rb" \
             --pkg-dir "npm/${{ steps.resolve.outputs.tool }}"
 
+      - name: Guard — npm registry does not already have this version
+        if: steps.resolve.outputs.dry != 'true'
+        run: |
+          set -euo pipefail
+          TOOL="${{ steps.resolve.outputs.tool }}"
+          NAME="$(node -p "require('./npm/$TOOL/package.json').name")"
+          VER="$(node -p "require('./npm/$TOOL/package.json').version")"
+          if npm view "$NAME@$VER" version > /dev/null 2>&1; then
+            echo "::error::$NAME@$VER already exists on the npm registry — refusing to re-publish."
+            echo "If this is intentional, bump the formula version (and retag), or publish with a prerelease suffix."
+            exit 1
+          fi
+          echo "$NAME@$VER not yet published — proceeding."
+
       - name: Inspect tarball
         working-directory: npm/${{ steps.resolve.outputs.tool }}
         run: npm pack --dry-run

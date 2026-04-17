@@ -162,23 +162,38 @@ async function main() {
   for (const { url, sha256 } of assets) {
     const binName = mapAssetToBinName(tool, url);
     const target = join(binDir, binName);
-    if (!args.skipDownload) {
+
+    // Idempotent download: if the file already exists locally and already has
+    // the expected sha256 (e.g. because we ran this script minutes ago), skip
+    // the network round-trip entirely. --skip-download forces the reuse path
+    // and requires the file to be present.
+    let reused = false;
+    try {
+      await stat(target);
+      const existingSha = await sha256OfFile(target);
+      if (existingSha === sha256) reused = true;
+    } catch { /* not present yet */ }
+
+    if (!reused) {
+      if (args.skipDownload) {
+        die(`--skip-download set but ${target} is missing or sha256 mismatch`);
+      }
       console.log(`  downloading ${url}`);
       await downloadToFile(url, target);
+      const actual = await sha256OfFile(target);
+      if (actual !== sha256) {
+        die(`sha256 mismatch for ${binName}:\n  expected ${sha256}\n  got      ${actual}`);
+      }
     } else {
-      try { await stat(target); }
-      catch { die(`--skip-download set but ${target} is missing`); }
+      console.log(`  reusing  ${target} (sha256 already matches)`);
     }
-    const actual = await sha256OfFile(target);
-    if (actual !== sha256) {
-      die(`sha256 mismatch for ${binName}:\n  expected ${sha256}\n  got      ${actual}`);
-    }
+
     try { await chmod(target, 0o755); }
     catch (e) {
       if (!args.skipDownload) throw e;
       console.warn(`  chmod failed on ${target}: ${e.message} (continuing, --dry set)`);
     }
-    console.log(`  OK ${binName}  (sha256 verified)`);
+    console.log(`  OK ${binName}  (sha256 verified${reused ? ", reused" : ""})`);
   }
 
   const tmpl = JSON.parse(await readFile(templatePath, "utf8"));

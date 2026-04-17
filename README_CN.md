@@ -25,6 +25,10 @@ brew install erchoc/tap/<formula>
 npm install -g @erchoc/<tool>
 ```
 
+> **`@` 前缀必须加**。`npm install -g erchoc/<tool>`（没有 `@`）是 npm 的
+> GitHub shorthand，会尝试 clone `github.com/erchoc/<tool>`——和这里的 npm
+> 包完全是两回事。
+
 安装过程**不执行 postinstall、不联网下载**，兼容 `--ignore-scripts`。支持
 macOS（arm64 + x64）与 Linux（x64 + arm64）。
 
@@ -68,6 +72,21 @@ Homebrew 公式是 `version` 与各平台 `sha256` 的唯一事实来源。发�
 1. 修改 `Formula/<tool>.rb` 里的 `version` 与各 `sha256`，提交。
 2. 打 tag `npm-<tool>-v<version>` 并 push——`publish-npm` workflow 会下载
    对应二进制、比对 sha256 与 formula 一致，然后发布 `@erchoc/<tool>`。
+
+## 安装后自检
+
+```bash
+# Homebrew
+which cb                          # → $(brew --prefix)/bin/cb
+cb --version
+
+# npm
+npm ls -g --depth=0 @erchoc/cb    # 确认 scoped 包已装
+which cb                          # → <npm-prefix>/bin/cb
+cb --version
+
+# 两条通道交付的是同一份上游二进制，版本号按设计逐字符一致。
+```
 
 ## 在自己的仓库自发布
 
