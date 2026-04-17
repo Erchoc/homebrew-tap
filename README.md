@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hero.png" alt="One release, two channels — brew and npm deliver the same binary" width="820">
+  <img src="docs/hero.webp" alt="One release, two channels — brew and npm deliver the same binary" width="820">
 </p>
 
 # Homebrew Tap · npm channel

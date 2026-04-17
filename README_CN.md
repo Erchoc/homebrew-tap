@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/hero.png" alt="一次发版，两处安家 — brew 和 npm 送来的是同一份二进制" width="820">
+  <img src="docs/hero.webp" alt="一次发版，两处安家 — brew 和 npm 送来的是同一份二进制" width="820">
 </p>
 
 # Homebrew Tap · npm 分发
