@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  TAP_NAME: erchoc/tap
+
 jobs:
   style:
     name: brew style & audit
@@ -26,14 +29,17 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
+      - name: Link repo as tap
+        run: |
+          TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          ln -s "$GITHUB_WORKSPACE" "$TAP_DIR"
+
       - name: brew style
-        run: brew style Formula/*.rb
+        run: brew style "$TAP_NAME"
 
       - name: brew audit
-        run: |
-          for f in Formula/*.rb; do
-            brew audit --strict --online --formula "$f"
-          done
+        run: brew audit --strict --online --tap "$TAP_NAME"
 
   install:
     name: brew install (${{ matrix.os }})
@@ -49,12 +55,18 @@ jobs:
       - name: Set up Homebrew
         uses: Homebrew/actions/setup-homebrew@main
 
+      - name: Link repo as tap
+        run: |
+          TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          ln -s "$GITHUB_WORKSPACE" "$TAP_DIR"
+
       - name: brew install & test each formula
         run: |
           for f in Formula/*.rb; do
             name="$(basename "$f" .rb)"
             echo "::group::install $name"
-            brew install --formula "$f"
-            brew test --formula "$name" || true
+            brew install --formula "$TAP_NAME/$name"
+            brew test --formula "$TAP_NAME/$name" || true
             echo "::endgroup::"
           done
