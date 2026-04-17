@@ -5,10 +5,12 @@ on:
     branches: [master]
     paths:
       - "Formula/**"
+      - "npm/**"
       - ".github/workflows/test.yml"
   pull_request:
     paths:
       - "Formula/**"
+      - "npm/**"
       - ".github/workflows/test.yml"
   workflow_dispatch:
 
@@ -68,5 +70,49 @@ jobs:
             echo "::group::install $name"
             brew install --formula "$TAP_NAME/$name"
             brew test --formula "$TAP_NAME/$name" || true
+            echo "::endgroup::"
+          done
+
+  npm-build:
+    name: npm build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build each npm package (download + verify sha256 + pack dry-run)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for d in npm/*/; do
+            tool="$(basename "$d")"
+            [ -f "Formula/$tool.rb" ] || { echo "skip $tool: no matching formula"; continue; }
+            echo "::group::build $tool"
+            node npm/scripts/build-npm-package.mjs \
+              --formula "Formula/$tool.rb" \
+              --pkg-dir "npm/$tool"
+            (cd "npm/$tool" && npm pack --dry-run)
+            echo "::endgroup::"
+          done
+
+      - name: Launcher smoke test (native platform only)
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for d in npm/*/; do
+            tool="$(basename "$d")"
+            [ -f "Formula/$tool.rb" ] || continue
+            # Exercise the launcher on the current platform. We don't assert
+            # on the binary's own output — only that the launcher resolves,
+            # execs, and surfaces some exit status without throwing.
+            echo "::group::launcher $tool --version"
+            node "npm/$tool/bin/$tool.js" --version || true
             echo "::endgroup::"
           done

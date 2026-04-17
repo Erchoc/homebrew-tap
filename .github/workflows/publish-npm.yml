@@ -1,0 +1,98 @@
+name: publish npm
+
+on:
+  push:
+    tags:
+      - "npm-*-v*"
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: "tool name (must match Formula/<tool>.rb and npm/<tool>/)"
+        required: true
+        type: string
+      dry_run:
+        description: "if true, run npm publish --dry-run only"
+        required: false
+        default: "true"
+        type: string
+
+concurrency:
+  group: publish-npm-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: build & publish @erchoc/${{ inputs.tool || 'tool-from-tag' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # reserved for future npm provenance
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Resolve tool name from tag or input
+        id: resolve
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TOOL="${{ inputs.tool }}"
+            DRY="${{ inputs.dry_run }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+            # Expect: npm-<tool>-v<version>
+            if [[ ! "$TAG" =~ ^npm-([a-zA-Z0-9_-]+)-v(.+)$ ]]; then
+              echo "tag '$TAG' does not match npm-<tool>-v<version>" >&2
+              exit 1
+            fi
+            TOOL="${BASH_REMATCH[1]}"
+            DRY="false"
+          fi
+          echo "tool=$TOOL"   >> "$GITHUB_OUTPUT"
+          echo "dry=$DRY"     >> "$GITHUB_OUTPUT"
+
+      - name: Validate layout
+        run: |
+          set -euo pipefail
+          TOOL="${{ steps.resolve.outputs.tool }}"
+          test -f "Formula/$TOOL.rb"         || { echo "missing Formula/$TOOL.rb"; exit 1; }
+          test -d "npm/$TOOL"                || { echo "missing npm/$TOOL"; exit 1; }
+          test -f "npm/$TOOL/bin/$TOOL.js"   || { echo "missing npm/$TOOL/bin/$TOOL.js"; exit 1; }
+          test -f "npm/$TOOL/package.template.json" || { echo "missing package.template.json"; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Build package (download + verify sha256)
+        run: |
+          node npm/scripts/build-npm-package.mjs \
+            --formula "Formula/${{ steps.resolve.outputs.tool }}.rb" \
+            --pkg-dir "npm/${{ steps.resolve.outputs.tool }}"
+
+      - name: Inspect tarball
+        working-directory: npm/${{ steps.resolve.outputs.tool }}
+        run: npm pack --dry-run
+
+      - name: Tag matches package version
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          TOOL="${{ steps.resolve.outputs.tool }}"
+          EXPECTED="npm-$TOOL-v$(node -p "require('./npm/$TOOL/package.json').version")"
+          if [[ "$TAG" != "$EXPECTED" ]]; then
+            echo "tag $TAG does not match formula version ($EXPECTED)" >&2
+            exit 1
+          fi
+
+      - name: npm publish
+        working-directory: npm/${{ steps.resolve.outputs.tool }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [[ "${{ steps.resolve.outputs.dry }}" == "true" ]]; then
+            npm publish --access public --dry-run
+          else
+            npm publish --access public
+          fi

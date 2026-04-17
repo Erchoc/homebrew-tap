@@ -3,3 +3,9 @@
 .vscode/
 *.swp
 *.swo
+
+# npm build artefacts: generated manifests + downloaded binaries + tarballs
+npm/*/package.json
+npm/*/*.tgz
+npm/*/bin/*
+!npm/*/bin/*.js
