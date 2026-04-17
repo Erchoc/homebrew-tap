@@ -30,11 +30,13 @@ A package that follows this spec guarantees:
 
 ## 2. Package layout (inside the tool's source repo)
 
-Conventionally placed under `npm/` in the tool's repo root:
+Place the package skeleton at whichever path fits the repo — `npm/` at root
+for single-package repos, `packages/npm/` for pnpm/yarn monorepos. The
+caller workflow's `package_dir` input pins the exact location.
 
 ```
 <tool-repo>/
-└── npm/
+└── <package_dir>/              # e.g. npm/ or packages/npm/
     ├── package.template.json
     ├── README.md
     ├── LICENSE
@@ -49,6 +51,17 @@ Only the first four items (`package.template.json`, `README.md`, `LICENSE`,
 `bin/<tool>.js`) are committed. The native binaries under `bin/` are
 downloaded into this directory by CI at publish time and never committed —
 add them to `.gitignore`.
+
+If you place it inside a pnpm/yarn workspace, **exclude the directory** from
+the workspace members — it's a publish-only wrapper whose `package.json` is
+generated at release time. For pnpm:
+
+```yaml
+# pnpm-workspace.yaml
+packages:
+  - 'packages/*'
+  - '!packages/npm'
+```
 
 Rules:
 
