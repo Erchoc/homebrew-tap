@@ -1,3 +1,1 @@
-**/target/
-**/output/
-**/release/
+.DS_Store
