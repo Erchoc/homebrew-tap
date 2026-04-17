@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/hero.png" alt="一次发版，两处安家 — brew 和 npm 送来的是同一份二进制" width="820">
+</p>
+
 # Homebrew Tap · npm 分发
 
 [English](README.md) · [中文](README_CN.md)
@@ -11,9 +15,10 @@ npm  install -g @erchoc/<tool>    # npm
 
 两条通道交付的是同一份来自工具 GitHub Release 的预编译二进制。
 
----
+<details>
+<summary><b>整条流水线长这样</b>——点开看架构图</summary>
 
-## 整条流水线长这样
+<br>
 
 ```mermaid
 flowchart LR
@@ -57,7 +62,12 @@ flowchart LR
 每个工具仓库自己掌控发版节奏（蓝色）。Tap（黄色）是所有工具复用的**共享基础设施**——
 一份 reusable workflow、一份构建脚本、一份规范文档。升级中枢一次，所有工具同步受益。
 
-## `git push --tags` 之后发生了什么
+</details>
+
+<details>
+<summary><b><code>git push --tags</code> 之后发生了什么</b>——点开看时序图</summary>
+
+<br>
 
 ```mermaid
 sequenceDiagram
@@ -92,6 +102,8 @@ sequenceDiagram
 
 一次 tag push，一轮 release workflow，npm 通道自动跟上。brew 通道目前是本仓库
 单独改 formula 触发（下一步会接自动化）。
+
+</details>
 
 ---
 

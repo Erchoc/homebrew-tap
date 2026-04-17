@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/hero.png" alt="One release, two channels — brew and npm deliver the same binary" width="820">
+</p>
+
 # Homebrew Tap · npm channel
 
 [English](README.md) · [中文](README_CN.md)
@@ -13,9 +17,10 @@ npm  install -g @erchoc/<tool>    # npm
 Both deliver the exact same pre-built binary from the tool's own GitHub
 Release.
 
----
+<details>
+<summary><b>How the pipeline fits together</b> — click to expand architecture diagram</summary>
 
-## How the pipeline fits together
+<br>
 
 ```mermaid
 flowchart LR
@@ -61,7 +66,12 @@ Every tool repo stays in charge of its own release narrative (blue). The tap
 reusable workflow, a single build script, a single spec. Upgrading the hub
 upgrades all tools at once.
 
-## What happens on `git push --tags`
+</details>
+
+<details>
+<summary><b>What happens on <code>git push --tags</code></b> — click to expand sequence diagram</summary>
+
+<br>
 
 ```mermaid
 sequenceDiagram
@@ -97,6 +107,8 @@ sequenceDiagram
 One tag push, one release workflow, and the npm channel tracks automatically.
 The brew channel updates on a separate formula bump in this repo (manual PR
 for now).
+
+</details>
 
 ---
 
