@@ -5,8 +5,15 @@ class Cb < Formula
   license "MIT"
 
   on_macos do
-    url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-macos-universal"
-    sha256 "3919f2d5b2133229363caa6a8fd52b8ba419cdf107b4ddfc69751d060175dfe0"
+    on_arm do
+      url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-macos-universal"
+      sha256 "3919f2d5b2133229363caa6a8fd52b8ba419cdf107b4ddfc69751d060175dfe0"
+    end
+
+    on_intel do
+      url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-macos-universal"
+      sha256 "3919f2d5b2133229363caa6a8fd52b8ba419cdf107b4ddfc69751d060175dfe0"
+    end
   end
 
   on_linux do
