@@ -1,50 +1,47 @@
 # homebrew-tap
 
-Distribution repo for pre-built CLI binaries. Ships each tool through **two
-equivalent channels**: Homebrew (`brew install erchoc/tap/<tool>`) and npm
+Dual-channel distribution **hub** for pre-built CLI binaries. Ships each tool
+through Homebrew (`brew install erchoc/tap/<tool>`) and npm
 (`npm install -g @erchoc/<tool>`).
+
+This repo is NOT where individual tools' npm packages are built — those live
+in each tool's own source repo. Here we host the Homebrew formulae, the
+reusable GitHub Actions workflow that every tool repo calls, the shared
+build script, and the packaging spec + template.
 
 ## Structure
 
 ```
 homebrew-tap/
-├── Formula/                     ← Homebrew formulae (one .rb per tool)
-├── npm/
-│   ├── <tool>/                  ← per-tool npm package (launcher + manifest)
-│   └── scripts/build-npm-package.mjs
-├── templates/npm/tool-template/ ← starter for self-publishing projects
-├── docs/npm-convention.md       ← full @<org>/<tool> packaging spec
+├── Formula/                                     ← Homebrew formulae (one .rb per tool)
+├── npm/scripts/build-npm-package-from-release.mjs   ← shared build script
+├── templates/npm/tool-template/                 ← starter for tool repos
+├── docs/npm-convention.md                       ← @<org>/<tool> packaging spec
 └── .github/workflows/
-    ├── test.yml                 ← brew style/audit/install + npm build dry-run
-    └── publish-npm.yml          ← tag-triggered npm publish
+    ├── test.yml                                 ← brew style/audit/install
+    └── publish-npm-reusable.yml                 ← called by tool repos via workflow_call
 ```
 
-## Adding a new formula
+## Adding a tool to this family
 
-Each formula downloads a pre-built binary from the source project's GitHub
-Releases. No source code lives here — only Formula definitions.
-
-## Adding a new npm package
-
-Follow `docs/npm-convention.md`. Copy `templates/npm/tool-template/` to
-`npm/<tool>/`, fill in placeholders, make sure a matching `Formula/<tool>.rb`
-exists. The build script uses the formula as source of truth for version and
-per-platform sha256.
+1. **Homebrew side** — add `Formula/<tool>.rb` here. Bump `version` +
+   per-platform `sha256` on each release.
+2. **npm side** — copy `templates/npm/tool-template/` into the tool's **own**
+   source repo as `npm/`. Follow `docs/npm-convention.md`. The tool repo's
+   `publish-npm.yml` calls the reusable workflow from this repo.
+3. **Secrets** — each tool repo needs `NPM_TOKEN` (granular Automation token
+   with write access to `@erchoc`). Prefer a GitHub org-level secret.
 
 ## Updating a tool
 
-Update `version` and each `sha256` in `Formula/<tool>.rb`. Then:
-
-- **Homebrew side** — nothing else to do; users get it on `brew upgrade`.
-- **npm side** — push tag `npm-<tool>-v<version>`; the `publish-npm`
-  workflow builds + verifies + publishes.
+- **Homebrew**: bump `version` and `sha256` in `Formula/<tool>.rb`.
+- **npm**: nothing here — the tool repo's `publish-npm.yml` fires on its own
+  `release: published` event.
 
 ## 当前进度
 
-- ✅ Homebrew 分发通道（`Formula/cb.rb`，macOS universal + linux x64/arm64）
-- ✅ npm 分发通道（`@<org>/<tool>` 单包内嵌二进制规范 + `@erchoc/cb` 参考实现）
-- ✅ 打包命名/结构规范文档（`docs/npm-convention.md`）
-- ✅ 其他项目自发布的模板（`templates/npm/tool-template/`）
-- ✅ CI：`publish-npm.yml` 按 tag 触发、`test.yml` 新增 npm 构建干跑
-- ⏳ 首次发布前置（需大哥亲手）：npmjs.com 注册 `@erchoc` 组织 + 仓库
-  secret `NPM_TOKEN`
+- ✅ Homebrew 分发通道（`Formula/cb.rb`）
+- ✅ npm 分发通道（规范 + reusable workflow + 模板）
+- ✅ `cb` 的 npm 打包搬到 `Erchoc/chatbot` 作为去中心化范例
+- ✅ 其他项目按 `templates/npm/tool-template/` 复制即可接入
+- ⏳ 自动化：tool repo release → homebrew-tap formula 自动 PR（暂人工）

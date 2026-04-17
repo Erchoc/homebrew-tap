@@ -1,0 +1,139 @@
+name: publish npm (reusable)
+
+# Reusable workflow for publishing an @<org>/<tool> embedded-binary npm
+# package straight from a tool's own GitHub Release. The caller's repo
+# owns:
+#   - the release workflow that produces the platform binaries
+#   - the npm package skeleton (package.template.json + bin/<tool>.js)
+#   - the NPM_TOKEN secret
+#
+# This workflow does the plumbing: download the release assets, map them
+# to the in-package binary names, stamp the version, run `npm publish`.
+#
+# Caller example (minimal):
+#
+#   # .github/workflows/publish-npm.yml in the tool's own repo
+#   name: publish npm
+#   on:
+#     release:
+#       types: [published]
+#     workflow_dispatch:
+#       inputs:
+#         release_tag: { required: true, type: string }
+#         dry_run:     { required: false, type: boolean, default: true }
+#
+#   jobs:
+#     npm:
+#       uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@master
+#       with:
+#         tool:        cb
+#         release_tag: ${{ github.event.release.tag_name || inputs.release_tag }}
+#         dry_run:     ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+#       secrets:
+#         NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+on:
+  workflow_call:
+    inputs:
+      tool:
+        description: "Tool name, matches bin/<tool>.js and brew formula name"
+        required: true
+        type: string
+      release_tag:
+        description: "Git tag of the upstream release whose assets to bundle"
+        required: true
+        type: string
+      package_dir:
+        description: "Path (in caller repo) to the npm package skeleton"
+        required: false
+        type: string
+        default: "npm"
+      tap_ref:
+        description: "Ref of Erchoc/homebrew-tap to use for build scripts"
+        required: false
+        type: string
+        default: "master"
+      dry_run:
+        description: "If true, run npm publish --dry-run only"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      NPM_TOKEN:
+        required: true
+
+jobs:
+  publish:
+    name: build & publish @<org>/${{ inputs.tool }}@${{ inputs.release_tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@v5
+        with:
+          path: caller
+
+      - name: Checkout homebrew-tap (scripts)
+        uses: actions/checkout@v5
+        with:
+          repository: Erchoc/homebrew-tap
+          ref: ${{ inputs.tap_ref }}
+          path: tap
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Validate caller layout
+        working-directory: caller
+        run: |
+          set -euo pipefail
+          PKG="${{ inputs.package_dir }}"
+          test -d "$PKG"                        || { echo "::error::missing $PKG"; exit 1; }
+          test -f "$PKG/package.template.json"  || { echo "::error::missing $PKG/package.template.json"; exit 1; }
+          test -f "$PKG/bin/${{ inputs.tool }}.js" || { echo "::error::missing $PKG/bin/${{ inputs.tool }}.js"; exit 1; }
+
+      - name: Build package (download release assets + map to bins)
+        working-directory: caller
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node ../tap/npm/scripts/build-npm-package-from-release.mjs \
+            --tool    "${{ inputs.tool }}" \
+            --repo    "${{ github.repository }}" \
+            --release "${{ inputs.release_tag }}" \
+            --pkg-dir "${{ inputs.package_dir }}"
+
+      - name: Inspect tarball
+        working-directory: caller/${{ inputs.package_dir }}
+        run: npm pack --dry-run
+
+      - name: Guard — not already on npm
+        if: ${{ !inputs.dry_run }}
+        working-directory: caller/${{ inputs.package_dir }}
+        run: |
+          set -euo pipefail
+          NAME="$(node -p "require('./package.json').name")"
+          VER="$(node -p "require('./package.json').version")"
+          if npm view "$NAME@$VER" version > /dev/null 2>&1; then
+            echo "::error::$NAME@$VER already exists on the npm registry — refusing to re-publish."
+            echo "If this was intentional, bump the release tag."
+            exit 1
+          fi
+          echo "$NAME@$VER not yet published — proceeding."
+
+      - name: npm publish
+        working-directory: caller/${{ inputs.package_dir }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            npm publish --access public --dry-run
+          else
+            npm publish --access public
+            NAME="$(node -p "require('./package.json').name")"
+            VER="$(node -p "require('./package.json').version")"
+            echo "::notice::published $NAME@$VER — https://www.npmjs.com/package/${NAME#@}"
+          fi

@@ -1,13 +1,14 @@
 # npm Embedded-Binary Convention (v1)
 
-This repo distributes CLI tools through two channels: Homebrew (`brew install
-erchoc/tap/<tool>`) and npm (`npm install -g @erchoc/<tool>`). Both channels
-hand users the same pre-built binary that ships in the upstream project's
-GitHub Release.
+CLI tools in the `@erchoc` namespace are published to npm as a mirror of
+their Homebrew distribution: `npm install -g @erchoc/<tool>` puts the same
+binary on PATH as `brew install erchoc/tap/<tool>`.
 
-This document specifies the npm packaging convention. Any project — not just
-those whose formulae live here — can follow it to publish a mirror npm package
-with identical user-facing behaviour.
+This document specifies the packaging convention. Each tool's **own source
+repo** publishes its own `@erchoc/<tool>` — this spec exists so every tool's
+packaging looks the same. Homebrew-tap provides a shared reusable GitHub
+Actions workflow; tool repos add a ~10-line caller workflow and follow the
+layout below.
 
 ## Guarantees
 
@@ -16,7 +17,7 @@ A package that follows this spec guarantees:
 - `npm install -g @<org>/<tool>` places a `<tool>` executable on PATH.
 - No `postinstall` script, no network access at install time.
 - Works under `npm install --ignore-scripts`.
-- Same binary bytes as the matching Homebrew formula (sha256-verified).
+- Same binary bytes as the matching upstream GitHub Release asset.
 - macOS (arm64 + x64), Linux (x64 + arm64). Windows returns a friendly error.
 
 ## 1. Package naming
@@ -24,34 +25,41 @@ A package that follows this spec guarantees:
 - npm name: `@<org>/<tool>` (scoped).
 - `<tool>` MUST match the Homebrew formula name (`@erchoc/cb` ↔
   `erchoc/tap/cb`).
-- Version: MUST equal the upstream release version character-for-character
-  (drop any `v` prefix). The same string appears in `Formula/<tool>.rb`'s
-  `version` field and in `@<org>/<tool>`'s `package.json` `version`.
+- Version: MUST equal the upstream Git release tag with any leading `v`
+  stripped (`v0.1.0-beta` → `0.1.0-beta`).
 
-## 2. Package layout
+## 2. Package layout (inside the tool's source repo)
+
+Conventionally placed under `npm/` in the tool's repo root:
 
 ```
-<package-root>/
-├── package.json
-├── README.md
-├── LICENSE
-└── bin/
-    ├── <tool>.js            # launcher shim (Node, shebang)
-    ├── <tool>-darwin        # macOS universal; or split -darwin-arm64 / -darwin-x64
-    ├── <tool>-linux-x64
-    └── <tool>-linux-arm64
+<tool-repo>/
+└── npm/
+    ├── package.template.json
+    ├── README.md
+    ├── LICENSE
+    └── bin/
+        ├── <tool>.js            # launcher shim (Node, shebang)
+        ├── <tool>-darwin        # macOS universal; or split -darwin-arm64 / -darwin-x64
+        ├── <tool>-linux-x64
+        └── <tool>-linux-arm64
 ```
+
+Only the first four items (`package.template.json`, `README.md`, `LICENSE`,
+`bin/<tool>.js`) are committed. The native binaries under `bin/` are
+downloaded into this directory by CI at publish time and never committed —
+add them to `.gitignore`.
 
 Rules:
 
 - Launcher is always `bin/<tool>.js`. `package.json`'s `bin` map points to it.
-- Native binaries go alongside under `bin/` with names keyed on Node's
+- Native binaries go alongside under `bin/`, named by Node's
   `process.platform`-`process.arch`: `darwin`, `linux`; `x64`, `arm64`.
 - If upstream ships a macOS universal binary, name it `<tool>-darwin` (the
   launcher maps both arm64 and x64 to it). Otherwise split into
   `<tool>-darwin-arm64` and `<tool>-darwin-x64`.
-- Every native binary MUST be chmod 0755 before `npm publish`. npm preserves
-  the tar mode bits, but only if they are set at pack time.
+- Every native binary MUST be chmod 0755 before `npm publish`. The shared
+  build script does this.
 
 ## 3. Launcher shim contract
 
@@ -94,7 +102,7 @@ Contract details:
 ```jsonc
 {
   "name": "@<org>/<tool>",
-  "version": "0.0.0",
+  "version": "__VERSION__",
   "description": "<same one-liner as the Homebrew formula's desc>",
   "homepage": "<upstream repo URL>",
   "repository": {
@@ -111,6 +119,9 @@ Contract details:
 }
 ```
 
+Keep `"version": "__VERSION__"` as a literal — CI substitutes it from the
+release tag at publish time.
+
 Hard requirements:
 
 - `bin` declares exactly one command, pointing at the launcher `.js`.
@@ -118,38 +129,84 @@ Hard requirements:
 - No `scripts.postinstall`, no `scripts.preinstall` — install MUST be offline.
 - `os` / `cpu` MUST match the set of platforms actually bundled.
 
-## 5. Binary provenance and verification
+## 5. Caller workflow (in the tool's source repo)
 
-- Binaries MUST be downloaded from the upstream GitHub Release that the
-  Homebrew formula references (same URL pattern, same tag).
-- The sha256 of each downloaded binary MUST match the corresponding `sha256`
-  line in `Formula/<tool>.rb`. The publish tooling fails closed on any
-  mismatch.
+Add `.github/workflows/publish-npm.yml`:
 
-## 6. Release tagging and automation
+```yaml
+name: publish npm
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Git tag of the release to publish from"
+        required: true
+        type: string
+      dry_run:
+        description: "If true, run npm publish --dry-run only"
+        required: false
+        type: boolean
+        default: true
 
-- Git tag format: `npm-<tool>-v<version>` (e.g. `npm-cb-v0.1.0-beta`). The
-  prefix scopes the tag so it never collides with upstream source tags (which
-  conventionally use `v<version>`).
-- CI picks up `npm-<tool>-v*` tags, parses `<tool>`, builds the package, and
-  runs `npm publish --access public` with a repo secret token.
-- `workflow_dispatch` is also supported for ad-hoc runs and dry-runs.
+jobs:
+  npm:
+    uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@master
+    with:
+      tool:        <tool>
+      release_tag: ${{ github.event.release.tag_name || inputs.release_tag }}
+      package_dir: npm
+      dry_run:     ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
 
-## 7. Self-publishing from another repo
+The reusable workflow:
 
-Any project can follow this spec without involving `homebrew-tap`:
+1. Checks out your repo and `homebrew-tap` (for shared scripts).
+2. Downloads every asset from the release via `gh release download`.
+3. Maps asset filenames to `<tool>-<platform>-<arch>` in-package names by
+   filename convention (`*macos-universal*` → `<tool>-darwin`, etc.).
+4. chmod 0755 on every binary.
+5. Substitutes `__VERSION__` in your `package.template.json`.
+6. Guards against re-publishing a version that's already on the npm registry.
+7. Runs `npm publish --access public` (or `--dry-run`).
 
-1. Copy `templates/npm/tool-template/` into your repo.
-2. Replace `__TOOL__` placeholders with your tool name, fill in
-   `description`, `homepage`, `repository`, `license`.
-3. Replace `__FORMULA_PATH__` with wherever your `version` and per-platform
-   `sha256` values live. The template's build script reads a Homebrew-style
-   formula; if your source of truth is different (JSON manifest, GitHub
-   Release API, etc.), adapt the parser — everything downstream is the same.
-4. Configure `NPM_TOKEN` as a repo secret.
-5. Push a `npm-<tool>-v<ver>` tag; the workflow does the rest.
+## 6. Prerequisites (per tool repo)
 
-## 8. Caveats
+- `@<org>` organisation exists on npmjs.com.
+- `NPM_TOKEN` repo secret set (granular Automation token with write access
+  to `@<org>` scope). Consider using a GitHub **organisation** secret so all
+  tool repos share one.
+- The tool's release workflow uploads binaries named so the convention
+  matches (see §7).
+
+## 7. Release asset filename patterns the reusable workflow recognises
+
+| Pattern in asset name | Maps to in-package binary |
+|---|---|
+| `*macos-universal*`, `*darwin-universal*` | `<tool>-darwin` |
+| `*macos-arm64*`, `*darwin-arm64*`        | `<tool>-darwin-arm64` |
+| `*macos-x86_64*`, `*macos-x64*`, `*darwin-x64*`, `*macos-intel*` | `<tool>-darwin-x64` |
+| `*linux-x86_64*`, `*linux-x64*`, `*linux-amd64*` | `<tool>-linux-x64` |
+| `*linux-arm64*`, `*linux-aarch64*` | `<tool>-linux-arm64` |
+
+Anything ending in `.sha256`, `.txt`, `.md`, `.zip`, `.tar.gz`, `.tgz` is
+skipped automatically.
+
+## 8. Keeping the brew formula in sync
+
+The Homebrew formula under `Formula/<tool>.rb` in `homebrew-tap` is a
+separate artefact owned by the tap. After your tool's release publishes, bump
+`version` + per-platform `sha256` in the formula (PR or direct commit). The
+npm channel does not depend on this step — it downloads from the release
+directly.
+
+(Future improvement: `repository_dispatch` from your release workflow to
+homebrew-tap to automate the formula bump.)
+
+## 9. Caveats
 
 1. **Tarball size.** Every install downloads all bundled binaries. Monitor
    tarball size; once it exceeds ~30 MB seriously consider migrating to
@@ -161,8 +218,8 @@ Any project can follow this spec without involving `homebrew-tap`:
    workaround, users can run
    `xattr -d com.apple.quarantine "$(which <tool>)"`.
 3. **Executable bit.** npm preserves file modes from the tarball but only if
-   they're already set. Publish scripts MUST chmod 0755 before packing.
-4. **Unpublish policy.** npm restricts `unpublish` after 72 hours. Prefer
-   dry-run publishes before tagging a real release.
+   they're already set. The reusable workflow chmod's 0755 before `npm pack`.
+4. **Unpublish policy.** npm restricts `unpublish` after 72 hours. Use the
+   `dry_run: true` path on `workflow_dispatch` to validate before releasing.
 5. **Scope squatting.** The `@<org>` scope must be claimed on npmjs.com
-   before the first publish. Check availability before settling on a name.
+   before the first publish.

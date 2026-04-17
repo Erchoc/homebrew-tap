@@ -2,9 +2,26 @@
 
 [English](README.md) · [中文](README_CN.md)
 
-[@Erchoc](https://github.com/Erchoc) 的个人命令行工具分发仓库。每个工具都通过
-Homebrew 与 npm 两条等价通道分发，两条通道交付同一份来自上游 GitHub
-Releases 的预编译二进制。
+[@Erchoc](https://github.com/Erchoc) 命令行工具的双通道分发中心。每个工具都通过两条等价通道分发：
+
+```bash
+brew install erchoc/tap/<tool>    # Homebrew
+npm  install -g @erchoc/<tool>    # npm
+```
+
+两条通道交付的是同一份来自工具 GitHub Release 的预编译二进制。
+
+## 本仓库提供什么
+
+- **Homebrew 公式**（`Formula/` 下，每个工具一份 `.rb`）。
+- **可复用 GitHub Actions workflow**
+  [`.github/workflows/publish-npm-reusable.yml`](.github/workflows/publish-npm-reusable.yml)——每个工具仓库调用它来发布自己的
+  `@erchoc/<tool>`。**本仓库不再集中维护任何工具的 npm 打包**。
+- **共享构建脚本**
+  [`npm/scripts/build-npm-package-from-release.mjs`](npm/scripts/build-npm-package-from-release.mjs)（被
+  reusable workflow 调用）。
+- **打包规范** [`docs/npm-convention.md`](docs/npm-convention.md)。
+- **起点模板** [`templates/npm/tool-template/`](templates/npm/tool-template/)。
 
 ## 使用 Homebrew 安装
 
@@ -13,7 +30,7 @@ brew tap erchoc/tap
 brew install <formula>
 ```
 
-或者免 tap 直接安装：
+或免 tap 直接安装：
 
 ```bash
 brew install erchoc/tap/<formula>
@@ -38,40 +55,45 @@ macOS（arm64 + x64）与 Linux（x64 + arm64）。
 |------|------|--------|----------|-----|
 | [cb](Formula/cb.rb) | 住在终端里的跨平台语音助手 | [Erchoc/chatbot](https://github.com/Erchoc/chatbot) | `brew install erchoc/tap/cb` | `npm install -g @erchoc/cb` |
 
-## 更新
-
-```bash
-brew update && brew upgrade <formula>     # Homebrew
-npm update -g @erchoc/<tool>              # npm
-```
-
 ## 仓库结构
 
 ```
 homebrew-tap/
-├── Formula/                     # Homebrew 公式（每个工具一份 .rb）
+├── Formula/                                # Homebrew 公式
 ├── npm/
-│   ├── <tool>/                  # npm 侧每工具一个子目录
-│   │   ├── bin/<tool>.js        # Node 启动垫片
-│   │   ├── package.template.json
-│   │   ├── README.md
-│   │   └── LICENSE
 │   └── scripts/
-│       └── build-npm-package.mjs  # 读取 Formula、下载并校验二进制
-├── templates/npm/tool-template/ # 其他项目自发布时的起点模板
-├── docs/npm-convention.md       # @<org>/<tool> 打包规范全文
+│       └── build-npm-package-from-release.mjs
+├── templates/npm/tool-template/            # 工具仓库的起点模板
+│   ├── bin/__TOOL__.js
+│   ├── package.template.json
+│   ├── .github/workflows/publish-npm.yml
+│   └── .gitignore
+├── docs/npm-convention.md                  # @<org>/<tool> 打包规范
 └── .github/workflows/
-    ├── test.yml                 # brew style/audit/install + npm 构建干跑
-    └── publish-npm.yml          # 打 tag 触发 npm 发布
+    ├── test.yml                            # brew style/audit/install
+    └── publish-npm-reusable.yml            # 被工具仓库调用
 ```
 
-## 发新版
+## 新增一个工具（发布流程）
 
-Homebrew 公式是 `version` 与各平台 `sha256` 的唯一事实来源。发布流程：
+每个新加入 `@erchoc` 家族的 CLI 都要接通两条通道：
 
-1. 修改 `Formula/<tool>.rb` 里的 `version` 与各 `sha256`，提交。
-2. 打 tag `npm-<tool>-v<version>` 并 push——`publish-npm` workflow 会下载
-   对应二进制、比对 sha256 与 formula 一致，然后发布 `@erchoc/<tool>`。
+### 1. Homebrew 侧（本仓库）
+
+加 `Formula/<tool>.rb`，指向工具 GitHub Release 的资产。每次发版更新
+`version` 与各平台 `sha256`。
+
+### 2. npm 侧（**工具自己的源仓库**）
+
+把 [`templates/npm/tool-template/`](templates/npm/tool-template/) 拷到工具
+仓库里当 `npm/`，按 [`docs/npm-convention.md`](docs/npm-convention.md) 落地。
+工具仓库的 `publish-npm.yml` 调用本仓库的 reusable workflow——共享 workflow
+升级一次，所有工具一起受益。
+
+每个工具仓库的前置条件：
+- `NPM_TOKEN` secret（granular Automation token，对 `@erchoc` scope 有写权限）。
+  推荐用 GitHub **组织级** secret，一次配置所有 Erchoc 仓库共享。
+- release workflow 产出的资产文件名匹配约定的平台关键词（见规范 §7）。
 
 ## 安装后自检
 
@@ -85,12 +107,5 @@ npm ls -g --depth=0 @erchoc/cb    # 确认 scoped 包已装
 which cb                          # → <npm-prefix>/bin/cb
 cb --version
 
-# 两条通道交付的是同一份上游二进制，版本号按设计逐字符一致。
+# 两条通道交付的是同一份上游二进制。
 ```
-
-## 在自己的仓库自发布
-
-本仓库不是必经路径。把 `templates/npm/tool-template/` 拷到自己仓库，按
-[docs/npm-convention.md](docs/npm-convention.md) 落地即可。事实来源不一定是
-Homebrew 公式——GitHub Release API、静态 manifest 都行，只要能提供版本号和
-每份二进制的 sha256。

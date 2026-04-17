@@ -2,9 +2,30 @@
 
 [English](README.md) · [中文](README_CN.md)
 
-Personal distribution repo for CLI tools by [@Erchoc](https://github.com/Erchoc).
-Every tool ships through two equivalent channels: Homebrew and npm. Both
-deliver the same pre-built binary from the upstream project's GitHub Release.
+Dual-channel distribution hub for [@Erchoc](https://github.com/Erchoc)'s CLI
+tools. Every tool ships through two equivalent channels:
+
+```bash
+brew install erchoc/tap/<tool>    # Homebrew
+npm  install -g @erchoc/<tool>    # npm
+```
+
+Both deliver the exact same pre-built binary from the tool's own GitHub
+Release.
+
+## What this repo provides
+
+- **Homebrew formulae** under `Formula/` — one `.rb` per tool.
+- **Reusable GitHub Actions workflow** at
+  [`.github/workflows/publish-npm-reusable.yml`](.github/workflows/publish-npm-reusable.yml) —
+  every tool repo calls this to publish its own `@erchoc/<tool>` to npm. No
+  per-tool npm packaging lives here.
+- **Shared build script** at
+  [`npm/scripts/build-npm-package-from-release.mjs`](npm/scripts/build-npm-package-from-release.mjs)
+  (invoked by the reusable workflow).
+- **Packaging spec** at [`docs/npm-convention.md`](docs/npm-convention.md).
+- **Starter template** at
+  [`templates/npm/tool-template/`](templates/npm/tool-template/).
 
 ## Install via Homebrew
 
@@ -38,42 +59,48 @@ No `postinstall` download, no network at install time, works under
 |------|-------------|--------|----------|-----|
 | [cb](Formula/cb.rb) | Cross-platform voice assistant for the terminal | [Erchoc/chatbot](https://github.com/Erchoc/chatbot) | `brew install erchoc/tap/cb` | `npm install -g @erchoc/cb` |
 
-## Updating
-
-```bash
-brew update && brew upgrade <formula>     # Homebrew
-npm update -g @erchoc/<tool>              # npm
-```
-
 ## Repo layout
 
 ```
 homebrew-tap/
-├── Formula/                     # one .rb per tool (Homebrew side)
+├── Formula/                                # one .rb per tool (Homebrew side)
 ├── npm/
-│   ├── <tool>/                  # one subdir per tool (npm side)
-│   │   ├── bin/<tool>.js        # Node launcher shim
-│   │   ├── package.template.json
-│   │   ├── README.md
-│   │   └── LICENSE
 │   └── scripts/
-│       └── build-npm-package.mjs  # reads Formula, downloads + verifies binaries
-├── templates/npm/tool-template/ # starter kit for self-publishing projects
-├── docs/npm-convention.md       # full spec for @<org>/<tool> packaging
+│       └── build-npm-package-from-release.mjs
+├── templates/npm/tool-template/            # starter kit for tool repos
+│   ├── bin/__TOOL__.js
+│   ├── package.template.json
+│   ├── .github/workflows/publish-npm.yml
+│   └── .gitignore
+├── docs/npm-convention.md                  # @<org>/<tool> packaging spec
 └── .github/workflows/
-    ├── test.yml                 # brew style/audit/install + npm build dry-run
-    └── publish-npm.yml          # tag-triggered npm publish
+    ├── test.yml                            # brew style/audit/install
+    └── publish-npm-reusable.yml            # called by tool repos
 ```
 
-## Releasing a new version
+## Adding a new tool (publishing flow)
 
-The Homebrew formula is the source of truth for `version` and each
-per-platform `sha256`. Releasing both channels is therefore:
+For each new CLI tool in the `@erchoc` family, wire up both channels:
 
-1. Bump `version` and each `sha256` in `Formula/<tool>.rb`, commit.
-2. Tag `npm-<tool>-v<version>` and push — the `publish-npm` workflow
-   downloads the matching binaries, verifies their sha256 against the
-   formula, and publishes `@erchoc/<tool>` to npmjs.org.
+### 1. Homebrew side (this repo)
+
+Add `Formula/<tool>.rb` pointing at the tool's GitHub Release assets. Bump
+`version` + per-platform `sha256` on each release.
+
+### 2. npm side (the tool's own source repo)
+
+Copy [`templates/npm/tool-template/`](templates/npm/tool-template/) into
+the tool's repo as `npm/`. Follow
+[`docs/npm-convention.md`](docs/npm-convention.md). The tool repo's
+`publish-npm.yml` calls this repo's reusable workflow — one-line upgrade for
+every tool whenever the shared workflow improves.
+
+Prereqs per tool repo:
+- `NPM_TOKEN` secret (granular Automation token, write access to `@erchoc`
+  scope). An **organisation** secret shared across all Erchoc repos is
+  recommended.
+- Release workflow uploads assets whose filenames match the recognised
+  platform patterns (see spec §7).
 
 ## Verifying an install
 
@@ -88,13 +115,4 @@ which cb                          # → <npm-prefix>/bin/cb
 cb --version
 
 # Both channels deliver the same binary from the upstream GitHub Release.
-# Version strings are identical by construction.
 ```
-
-## Self-publishing from your own repo
-
-You don't need to be hosted here to use the npm packaging convention. Copy
-`templates/npm/tool-template/` into your own repo and follow
-[docs/npm-convention.md](docs/npm-convention.md). Works with any source of
-truth for version + binary hashes (Homebrew formula, GitHub Release API,
-static manifest, etc.).

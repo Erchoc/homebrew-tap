@@ -1,0 +1,32 @@
+name: publish npm
+
+# Drop-in template. Replace `__TOOL__` with your CLI's name.
+# The package skeleton must live at `npm/` (or update `package_dir` below).
+# Set the repo secret `NPM_TOKEN` to an npm Automation token with write
+# access to the `@__ORG__` scope.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Git tag of the release to publish from"
+        required: true
+        type: string
+      dry_run:
+        description: "If true, run npm publish --dry-run only"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  npm:
+    uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@master
+    with:
+      tool:        __TOOL__
+      release_tag: ${{ github.event.release.tag_name || inputs.release_tag }}
+      package_dir: npm
+      dry_run:     ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
