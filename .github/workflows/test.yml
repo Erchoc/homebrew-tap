@@ -1,0 +1,60 @@
+name: test formulae
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "Formula/**"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "Formula/**"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  style:
+    name: brew style & audit
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: brew style
+        run: brew style --tap "$(pwd)"
+
+      - name: brew audit
+        run: |
+          for f in Formula/*.rb; do
+            brew audit --strict --online "$f"
+          done
+
+  install:
+    name: brew install (${{ matrix.os }})
+    needs: style
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Homebrew
+        uses: Homebrew/actions/setup-homebrew@master
+
+      - name: brew install & test each formula
+        run: |
+          for f in Formula/*.rb; do
+            name="$(basename "$f" .rb)"
+            echo "::group::install $name"
+            brew install --formula "$f"
+            brew test --formula "$name" || true
+            echo "::endgroup::"
+          done
