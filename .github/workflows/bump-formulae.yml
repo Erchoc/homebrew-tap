@@ -1,0 +1,125 @@
+name: bump formulae
+
+# Manually-triggered workflow that runs scripts/bump-formula.sh against
+# every Formula (or a single one, if passed), commits any version +
+# sha256 changes to master, and pushes. Use it whenever you've cut a
+# new release of one of the tools in this tap.
+#
+# Dry-run mode edits the Formula on disk and uploads the diff as a
+# workflow artifact without committing — useful to preview what would
+# change across all tools.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Formula to bump (leave empty to bump all)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Preview diff only, do not commit'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # needed so the workflow can git push the bump commit
+
+concurrency:
+  group: bump-formulae
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: ${{ inputs.tool && format('bump {0}', inputs.tool) || 'bump all formulae' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Needed so subsequent pushes from this runner use the built-in
+          # GITHUB_TOKEN with write permission (granted above).
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Enumerate targets
+        id: targets
+        run: |
+          if [ -n "${{ inputs.tool }}" ]; then
+            echo "tools=${{ inputs.tool }}" >> "$GITHUB_OUTPUT"
+          else
+            # List every *.rb in Formula/, strip the path + extension.
+            tools=$(find Formula -maxdepth 1 -name '*.rb' -exec basename {} .rb \; | sort | tr '\n' ' ')
+            echo "tools=$tools" >> "$GITHUB_OUTPUT"
+          fi
+          echo "→ will process: $tools"
+
+      - name: Run bump-formula.sh per tool
+        id: bump
+        env:
+          # Give the script a higher rate-limit budget for the source-repo
+          # API calls. GITHUB_TOKEN here is the tap repo's token; it can
+          # read any public source repo.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          changed_tools=""
+          for tool in ${{ steps.targets.outputs.tools }}; do
+            echo "::group::Bump $tool"
+            # Run without --commit so we can batch everything into one
+            # commit at the end (keeps history clean).
+            ./scripts/bump-formula.sh "$tool" || { echo "bump $tool failed"; exit 1; }
+            if ! git diff --quiet -- "Formula/${tool}.rb"; then
+              changed_tools="$changed_tools $tool"
+            fi
+            echo "::endgroup::"
+          done
+          changed_tools=$(echo "$changed_tools" | xargs)   # trim
+          echo "changed=$changed_tools" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          if [ -z "${{ steps.bump.outputs.changed }}" ]; then
+            echo "## ✓ All formulae already at latest" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Nothing to commit." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          {
+            echo "## Changed formulae"
+            echo ""
+            for t in ${{ steps.bump.outputs.changed }}; do
+              echo "### \`$t\`"
+              echo ""
+              echo '```diff'
+              git --no-pager diff -- "Formula/${t}.rb"
+              echo '```'
+              echo ""
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload dry-run diff
+        if: ${{ inputs.dry_run && steps.bump.outputs.changed != '' }}
+        run: |
+          git diff > /tmp/bump.diff
+          echo "Dry run — diff attached to workflow artifact. No commit."
+          echo "Revert local edits on the runner so we don't stash stray state."
+          git restore --staged .
+          git restore .
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.dry_run && steps.bump.outputs.changed != '' }}
+        with:
+          name: bump-dry-run.diff
+          path: /tmp/bump.diff
+
+      - name: Commit and push
+        if: ${{ !inputs.dry_run && steps.bump.outputs.changed != '' }}
+        run: |
+          msg_tools=$(echo "${{ steps.bump.outputs.changed }}" | tr ' ' ',' )
+          git add Formula/
+          git commit -m "chore(formulae): bump ${msg_tools}"
+          git push origin "$(git symbolic-ref --short HEAD)"
