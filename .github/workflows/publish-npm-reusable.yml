@@ -24,7 +24,7 @@ name: publish npm (reusable)
 #
 #   jobs:
 #     npm:
-#       uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@master
+#       uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@main
 #       with:
 #         tool:        cb
 #         release_tag: ${{ github.event.release.tag_name || inputs.release_tag }}
@@ -52,7 +52,7 @@ on:
         description: "Ref of Erchoc/homebrew-tap to use for build scripts"
         required: false
         type: string
-        default: "master"
+        default: "main"
       dry_run:
         description: "If true, run npm publish --dry-run only"
         required: false

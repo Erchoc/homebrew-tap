@@ -165,7 +165,7 @@ on:
 
 jobs:
   npm:
-    uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@master
+    uses: Erchoc/homebrew-tap/.github/workflows/publish-npm-reusable.yml@main
     with:
       tool:        <tool>
       release_tag: ${{ github.event.release.tag_name || inputs.release_tag }}

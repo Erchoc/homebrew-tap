@@ -2,7 +2,7 @@ name: test formulae
 
 on:
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - "Formula/**"
       - "npm/**"

@@ -2,7 +2,7 @@ name: bump formulae
 
 # Manually-triggered workflow that runs scripts/bump-formula.sh against
 # every Formula (or a single one, if passed), commits any version +
-# sha256 changes to master, and pushes. Use it whenever you've cut a
+# sha256 changes to main, and pushes. Use it whenever you've cut a
 # new release of one of the tools in this tap.
 #
 # Dry-run mode edits the Formula on disk and uploads the diff as a
