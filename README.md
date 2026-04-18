@@ -177,10 +177,32 @@ homebrew-tap/
     └── publish-npm-reusable.yml            # workflow_call entry point
 ```
 
+## Bumping a Formula after a new release
+
+`scripts/bump-formula.sh` reads the target `Formula/<tool>.rb`, figures out
+the source repo and artifact filenames, resolves the newest release tag
+(or accepts one explicitly), fetches each `<artifact>.sha256` file from
+GitHub, and rewrites the Formula in place.
+
+```bash
+# Auto: pick up the newest release from the tool's source repo
+scripts/bump-formula.sh cb
+
+# Pin a specific tag (useful when you want to skip a bad release)
+scripts/bump-formula.sh cb v0.1.0-beta.6
+
+# One-shot: edit + commit + push on current branch
+scripts/bump-formula.sh cb v0.1.0-beta.6 --commit
+```
+
+Without `--commit` it just edits the file and prints a diff, so you can
+eyeball and commit manually. Set `GITHUB_TOKEN` (or have `gh` logged in)
+to avoid the 60 req/hr rate limit on anonymous API calls.
+
 ## Adding a new tool
 
 1. **Homebrew side** — add `Formula/<tool>.rb`. Bump `version` + per-platform
-   `sha256` on each release.
+   `sha256` on each release (see `scripts/bump-formula.sh` above).
 2. **npm side** — copy [`templates/npm/tool-template/`](templates/npm/tool-template/)
    into the tool's own source repo (as `npm/` at root, or `packages/npm/`
    inside a monorepo). Follow
