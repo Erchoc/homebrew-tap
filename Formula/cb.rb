@@ -1,30 +1,30 @@
 class Cb < Formula
   desc "Cross-platform voice assistant that lives in your terminal"
   homepage "https://github.com/Erchoc/chatbot"
-  version "0.1.0-beta.6"
+  version "0.1.0"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-macos-universal"
-      sha256 "9cc997f5b999cf5ac6fb264828629050766ce9ea1b1cd44845fd1f2c858d3b26"
+      sha256 "43b9860abe5027876474b85f3dfa1783bbd15a0516ff084d859ddef77f5fec88"
     end
 
     on_intel do
       url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-macos-universal"
-      sha256 "9cc997f5b999cf5ac6fb264828629050766ce9ea1b1cd44845fd1f2c858d3b26"
+      sha256 "43b9860abe5027876474b85f3dfa1783bbd15a0516ff084d859ddef77f5fec88"
     end
   end
 
   on_linux do
     on_intel do
       url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-linux-x86_64"
-      sha256 "f7d009e8d7db2a09481a1af703ff82c136156560242a559cadeecf3a4c6ac2b4"
+      sha256 "75fc49dafdaf9a3720b3ab328d60ec9b04f67bbed5befed2ea6b3ad728e8381b"
     end
 
     on_arm do
       url "https://github.com/Erchoc/chatbot/releases/download/v#{version}/cb-linux-arm64"
-      sha256 "f6ce2535e3c15d0d11b72b4928fedfcf727ff29f9deb99c8277775f65ab3a939"
+      sha256 "c50ef174ce01aaf77dcd4503915de00df2bcea904002e6240145ce7258a08aac"
     end
   end
 
