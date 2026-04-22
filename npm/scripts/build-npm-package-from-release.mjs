@@ -48,13 +48,42 @@ function die(msg) { console.error(`build-npm-package-from-release: ${msg}`); exi
 function mapAssetToBinName(tool, filename) {
   const f = basename(filename);
   if (f.endsWith(".sha256") || f.endsWith(".txt") || f.endsWith(".md")) return null;
-  if (f.endsWith(".zip") || f.endsWith(".tar.gz") || f.endsWith(".tgz")) return null;
-  if (/macos[-_]universal/i.test(f))                        return `${tool}-darwin`;
-  if (/(macos|darwin)[-_]arm64/i.test(f))                   return `${tool}-darwin-arm64`;
+  if (f.endsWith(".zip") || f.endsWith(".tgz")) return null;
+  // Friendly OS-arch patterns (bare binaries or zips named by convention)
+  if (/macos[-_]universal/i.test(f))                             return `${tool}-darwin`;
+  if (/(macos|darwin)[-_]arm64/i.test(f))                        return `${tool}-darwin-arm64`;
   if (/(macos|darwin)[-_](x86[_-]?64|x64|amd64|intel)/i.test(f)) return `${tool}-darwin-x64`;
-  if (/linux[-_](x86[_-]?64|x64|amd64)/i.test(f))           return `${tool}-linux-x64`;
-  if (/linux[-_](arm64|aarch64)/i.test(f))                  return `${tool}-linux-arm64`;
+  if (/linux[-_](x86[_-]?64|x64|amd64)/i.test(f))                return `${tool}-linux-x64`;
+  if (/linux[-_](arm64|aarch64)/i.test(f))                       return `${tool}-linux-arm64`;
+  // Rust cross-compilation triples (e.g. dfctl-0.1.0-aarch64-apple-darwin.tar.gz)
+  if (/aarch64-apple-darwin/i.test(f))    return `${tool}-darwin-arm64`;
+  if (/x86_64-apple-darwin/i.test(f))     return `${tool}-darwin-x64`;
+  if (/x86_64-unknown-linux/i.test(f))    return `${tool}-linux-x64`;
+  if (/aarch64-unknown-linux/i.test(f))   return `${tool}-linux-arm64`;
+  // Remaining tarballs that didn't match any platform pattern
+  if (f.endsWith(".tar.gz")) return null;
   return null;
+}
+
+// Extract the tool binary from a .tar.gz archive into dest.
+// Expects the archive to contain a file named `tool` at root level
+// (the layout produced by cargo cross-compilation release workflows).
+async function extractBinaryFromTarball(archivePath, tool, dest) {
+  const extractDir = `${archivePath}.extract`;
+  await mkdir(extractDir, { recursive: true });
+  try {
+    await new Promise((resolve, reject) => {
+      const p = spawn("tar", ["-xzf", archivePath, "-C", extractDir], { stdio: "inherit" });
+      p.on("error", reject);
+      p.on("close", code => code === 0 ? resolve() : reject(new Error(`tar exited ${code}`)));
+    });
+    const files = await readdir(extractDir);
+    const binary = files.find(f => f === tool) ?? files.find(f => !f.includes("."));
+    if (!binary) throw new Error(`'${tool}' not found in tarball. Contents: ${files.join(", ")}`);
+    await copyFile(join(extractDir, binary), dest);
+  } finally {
+    await rm(extractDir, { recursive: true, force: true });
+  }
 }
 
 function runGh(args) {
@@ -113,7 +142,12 @@ async function main() {
     if (!binName) { console.log(`  skip ${f} (no platform match)`); continue; }
     const src = join(tmpDir, f);
     const dst = join(binDir, binName);
-    await copyFile(src, dst);
+    if (f.endsWith(".tar.gz")) {
+      console.log(`  extracting ${f} → ${binName}`);
+      await extractBinaryFromTarball(src, tool, dst);
+    } else {
+      await copyFile(src, dst);
+    }
     await chmod(dst, 0o755);
     const sha = await sha256OfFile(dst);
     console.log(`  OK ${binName}  (from ${f}, sha256 ${sha.slice(0, 16)}…)`);

@@ -130,13 +130,16 @@ declare -A SHAS
 echo
 log "fetching sha256 values..."
 for a in "${ARTIFACTS[@]}"; do
-  url="https://github.com/${SOURCE_REPO}/releases/download/${TAG}/${a}.sha256"
+  # Substitute Ruby's #{version} interpolation (used in tarball artifact names)
+  # so the GitHub download URL resolves correctly; keep original key for awk mapping.
+  a_resolved="${a//\#\{version\}/$VERSION}"
+  url="https://github.com/${SOURCE_REPO}/releases/download/${TAG}/${a_resolved}.sha256"
   body=$(curl -fsSL "$url" 2>/dev/null || true)
   [ -n "$body" ] || die "failed to fetch $url — is the release published?"
   sha=$(echo "$body" | awk '{print $1}')
-  [ ${#sha} -eq 64 ] || die "unexpected sha256 length for $a: '$sha'"
+  [ ${#sha} -eq 64 ] || die "unexpected sha256 length for $a_resolved: '$sha'"
   SHAS[$a]="$sha"
-  printf "    %-30s %s\n" "$a" "${sha:0:16}..."
+  printf "    %-30s %s\n" "$a_resolved" "${sha:0:16}..."
 done
 
 # ── Patch Formula (sed in place, portable) ───────────────────────────
