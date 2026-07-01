@@ -34,7 +34,7 @@ jobs:
     name: ${{ inputs.tool && format('bump {0}', inputs.tool) || 'bump all formulae' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Needed so subsequent pushes from this runner use the built-in
           # GITHUB_TOKEN with write permission (granted above).
