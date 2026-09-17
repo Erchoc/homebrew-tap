@@ -105,8 +105,10 @@ sequenceDiagram
 ```
 
 One tag push, one release workflow, and the npm channel tracks automatically.
-The brew channel updates on a separate formula bump in this repo (manual PR
-for now).
+The brew channel follows on its own: `bump-formulae.yml` polls each source
+repo's `/releases/latest` every 6 hours (or fires instantly on a
+`repository_dispatch` from the tool's release workflow), verifies the new
+formula with `brew install` + `brew test`, then commits. Betas never reach brew.
 
 </details>
 

@@ -10,8 +10,12 @@
 #
 # Usage:
 #   scripts/bump-formula.sh cb v0.1.0-beta.6     # pin tag
-#   scripts/bump-formula.sh cb                   # auto: newest release
+#   scripts/bump-formula.sh cb                   # auto: newest STABLE release
+#   scripts/bump-formula.sh cb --prerelease      # auto: newest release incl. beta/rc
 #   scripts/bump-formula.sh cb v0.1.0 --commit   # commit + push after edit
+#
+# Auto mode resolves via /releases/latest, which GitHub filters to
+# non-prerelease tags — brew is the stable channel, betas stay on curl.
 #
 # Env:
 #   GITHUB_TOKEN  — used for API calls (auto-picked up from `gh auth token`
@@ -47,10 +51,17 @@ log() { echo "${C_DIM}·${C_RESET} $*"; }
 case "${1:-}" in -h|--help) usage ;; esac
 
 TOOL="$1"
-TAG="${2:-}"
+TAG=""
 COMMIT_PUSH=0
+INCLUDE_PRERELEASE=0
+shift
 for arg in "$@"; do
-  [ "$arg" = "--commit" ] && COMMIT_PUSH=1
+  case "$arg" in
+    --commit)     COMMIT_PUSH=1 ;;
+    --prerelease) INCLUDE_PRERELEASE=1 ;;
+    --*)          die "unknown flag: $arg" ;;
+    *)            TAG="$arg" ;;
+  esac
 done
 
 # Resolve repo root from script location so this works from any cwd.
@@ -97,8 +108,13 @@ fi
 [ -n "$EFFECTIVE_TOKEN" ] && AUTH_ARGS=(-H "Authorization: Bearer $EFFECTIVE_TOKEN")
 
 if [ -z "$TAG" ]; then
-  log "fetching newest release from $SOURCE_REPO..."
-  API_URL="https://api.github.com/repos/${SOURCE_REPO}/releases?per_page=1"
+  if [ "$INCLUDE_PRERELEASE" = 1 ]; then
+    log "fetching newest release (incl. prerelease) from $SOURCE_REPO..."
+    API_URL="https://api.github.com/repos/${SOURCE_REPO}/releases?per_page=1"
+  else
+    log "fetching newest stable release from $SOURCE_REPO..."
+    API_URL="https://api.github.com/repos/${SOURCE_REPO}/releases/latest"
+  fi
   api_body=$(mktemp)
   api_status=$(curl -sSL -o "$api_body" -w '%{http_code}' "${AUTH_ARGS[@]}" "$API_URL" || echo '000')
   if [ "$api_status" = "403" ] && [ -z "$EFFECTIVE_TOKEN" ]; then

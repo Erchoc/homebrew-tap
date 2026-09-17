@@ -1,13 +1,15 @@
 name: bump formulae
 
-# Manually-triggered workflow that runs scripts/bump-formula.sh against
-# every Formula (or a single one, if passed), commits any version +
-# sha256 changes to main, and pushes. Use it whenever you've cut a
-# new release of one of the tools in this tap.
+# 把每个 Formula 的 version + sha256 对齐到源仓库的最新正式版，验证能装、能跑，再提交到 main。
 #
-# Dry-run mode edits the Formula on disk and uploads the diff as a
-# workflow artifact without committing — useful to preview what would
-# change across all tools.
+# 三种触发：
+#   - repository_dispatch(release-published)：源仓库 release.yml 发完正式版立刻通知
+#     （源仓库需配置 TAP_DISPATCH_TOKEN，见 README「自动 bump」）。
+#   - schedule：每 6 小时兜底扫一遍所有 Formula，没配 token 也能自动跟上。
+#   - workflow_dispatch：手动，可指定 tool / 含预发布 / dry-run 预览。
+#
+# 只跟正式版：脚本走 GitHub /releases/latest，它天然排除 prerelease，beta 不进 brew。
+# 提交前会在 runner 上 brew install + brew test 一遍，装不上就不提交。
 
 on:
   workflow_dispatch:
@@ -16,11 +18,20 @@ on:
         description: 'Formula to bump (leave empty to bump all)'
         required: false
         type: string
+      include_prerelease:
+        description: 'Also consider beta/rc releases'
+        required: false
+        type: boolean
+        default: false
       dry_run:
         description: 'Preview diff only, do not commit'
         required: false
         type: boolean
         default: false
+  repository_dispatch:
+    types: [release-published]
+  schedule:
+    - cron: '0 */6 * * *'
 
 permissions:
   contents: write   # needed so the workflow can git push the bump commit
@@ -29,15 +40,21 @@ concurrency:
   group: bump-formulae
   cancel-in-progress: false
 
+env:
+  TAP_NAME: erchoc/tap
+  # 三种触发源统一成同一组变量，后面的步骤不再关心事件类型
+  TOOL: ${{ inputs.tool || github.event.client_payload.tool || '' }}
+  PIN_TAG: ${{ github.event.client_payload.tag || '' }}
+  DRY_RUN: ${{ inputs.dry_run == true }}
+  INCLUDE_PRERELEASE: ${{ inputs.include_prerelease == true }}
+
 jobs:
   bump:
-    name: ${{ inputs.tool && format('bump {0}', inputs.tool) || 'bump all formulae' }}
+    name: ${{ github.event_name }}${{ inputs.tool && format(' · {0}', inputs.tool) || '' }}${{ github.event.client_payload.tool && format(' · {0} {1}', github.event.client_payload.tool, github.event.client_payload.tag) || '' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
         with:
-          # Needed so subsequent pushes from this runner use the built-in
-          # GITHUB_TOKEN with write permission (granted above).
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git identity
@@ -48,78 +65,92 @@ jobs:
       - name: Enumerate targets
         id: targets
         run: |
-          if [ -n "${{ inputs.tool }}" ]; then
-            echo "tools=${{ inputs.tool }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$TOOL" ]; then
+            tools="$TOOL"
           else
-            # List every *.rb in Formula/, strip the path + extension.
             tools=$(find Formula -maxdepth 1 -name '*.rb' -exec basename {} .rb \; | sort | tr '\n' ' ')
-            echo "tools=$tools" >> "$GITHUB_OUTPUT"
           fi
-          echo "→ will process: $tools"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+          echo "→ will process: $tools (pin_tag='${PIN_TAG}', prerelease=${INCLUDE_PRERELEASE})"
 
       - name: Run bump-formula.sh per tool
         id: bump
         env:
-          # Give the script a higher rate-limit budget for the source-repo
-          # API calls. GITHUB_TOKEN here is the tap repo's token; it can
-          # read any public source repo.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
+          flags=""
+          [ "$INCLUDE_PRERELEASE" = "true" ] && flags="--prerelease"
           changed_tools=""
           for tool in ${{ steps.targets.outputs.tools }}; do
             echo "::group::Bump $tool"
-            # Run without --commit so we can batch everything into one
-            # commit at the end (keeps history clean).
-            ./scripts/bump-formula.sh "$tool" || { echo "bump $tool failed"; exit 1; }
+            # dispatch 事件带 tag 时精确对齐到那个 tag；否则解析最新正式版
+            if [ -n "$TOOL" ] && [ -n "$PIN_TAG" ]; then
+              ./scripts/bump-formula.sh "$tool" "$PIN_TAG" || { echo "bump $tool failed"; exit 1; }
+            else
+              ./scripts/bump-formula.sh "$tool" $flags || { echo "bump $tool failed"; exit 1; }
+            fi
             if ! git diff --quiet -- "Formula/${tool}.rb"; then
               changed_tools="$changed_tools $tool"
             fi
             echo "::endgroup::"
           done
-          changed_tools=$(echo "$changed_tools" | xargs)   # trim
+          changed_tools=$(echo "$changed_tools" | xargs)
           echo "changed=$changed_tools" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
           if [ -z "${{ steps.bump.outputs.changed }}" ]; then
             echo "## ✓ All formulae already at latest" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Nothing to commit." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           {
             echo "## Changed formulae"
-            echo ""
             for t in ${{ steps.bump.outputs.changed }}; do
-              echo "### \`$t\`"
               echo ""
+              echo "### \`$t\`"
               echo '```diff'
               git --no-pager diff -- "Formula/${t}.rb"
               echo '```'
-              echo ""
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # ── 提交前验证：改完的 Formula 真能装、真能跑 ──
+      - name: Set up Homebrew
+        if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
+        uses: Homebrew/actions/setup-homebrew@main
+
+      - name: Verify changed formulae install
+        if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
+        run: |
+          set -e
+          TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
+          mkdir -p "$(dirname "$TAP_DIR")"
+          ln -sfn "$GITHUB_WORKSPACE" "$TAP_DIR"
+          for t in ${{ steps.bump.outputs.changed }}; do
+            echo "::group::verify $t"
+            brew install --formula "$TAP_NAME/$t"
+            brew test --formula "$TAP_NAME/$t"
+            echo "::endgroup::"
+          done
+
       - name: Upload dry-run diff
-        if: ${{ inputs.dry_run && steps.bump.outputs.changed != '' }}
+        if: ${{ env.DRY_RUN == 'true' && steps.bump.outputs.changed != '' }}
         run: |
           git diff > /tmp/bump.diff
-          echo "Dry run — diff attached to workflow artifact. No commit."
-          echo "Revert local edits on the runner so we don't stash stray state."
           git restore --staged .
           git restore .
 
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.dry_run && steps.bump.outputs.changed != '' }}
+        if: ${{ env.DRY_RUN == 'true' && steps.bump.outputs.changed != '' }}
         with:
           name: bump-dry-run.diff
           path: /tmp/bump.diff
 
       - name: Commit and push
-        if: ${{ !inputs.dry_run && steps.bump.outputs.changed != '' }}
+        if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
         run: |
-          msg_tools=$(echo "${{ steps.bump.outputs.changed }}" | tr ' ' ',' )
+          msg_tools=$(echo "${{ steps.bump.outputs.changed }}" | tr ' ' ',')
           git add Formula/
-          git commit -m "chore(formulae): bump ${msg_tools}"
+          git commit -m "chore(formulae): bump ${msg_tools} (${{ github.event_name }})"
           git push origin "$(git symbolic-ref --short HEAD)"

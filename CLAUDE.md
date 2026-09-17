@@ -34,7 +34,11 @@ homebrew-tap/
 
 ## Updating a tool
 
-- **Homebrew**: bump `version` and `sha256` in `Formula/<tool>.rb`.
+- **Homebrew**: 自动。`bump-formulae.yml` 每 6 小时扫一遍所有 Formula，把 `version` +
+  `sha256` 对齐到源仓库的最新**正式版**（`/releases/latest`，beta 不进 brew），在 runner 上
+  `brew install` + `brew test` 通过后才提交。源仓库若配置了 `TAP_DISPATCH_TOKEN`（对本仓库有
+  contents:write 的 fine-grained PAT）并在 release.yml 里发 `repository_dispatch`
+  `release-published`，则发布后立刻 bump，不用等定时任务。手动：Actions → bump formulae → Run。
 - **npm**: nothing here — the tool repo's `publish-npm.yml` fires on its own
   `release: published` event.
 
@@ -44,4 +48,4 @@ homebrew-tap/
 - ✅ npm 分发通道（规范 + reusable workflow + 模板）
 - ✅ `cb` 的 npm 打包搬到 `Erchoc/chatbot` 作为去中心化范例
 - ✅ 其他项目按 `templates/npm/tool-template/` 复制即可接入
-- ⏳ 自动化：tool repo release → homebrew-tap formula 自动 PR（暂人工）
+- ✅ 自动化：定时 + repository_dispatch 双路径自动 bump，提交前 brew install/test 验证
