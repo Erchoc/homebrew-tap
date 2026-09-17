@@ -115,7 +115,15 @@ jobs:
             done
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # ── 提交前验证：改完的 Formula 真能装、真能跑 ──
+      # ── 先本地提交（不 push），再验证：brew 从 tap 的 git 状态读 Formula，
+      #    未提交的改动它看不见（第一次跑装出来的还是旧版本）。验证失败就不 push。
+      - name: Commit locally
+        if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
+        run: |
+          msg_tools=$(echo "${{ steps.bump.outputs.changed }}" | tr ' ' ',')
+          git add Formula/
+          git commit -m "chore(formulae): bump ${msg_tools} (${{ github.event_name }})"
+
       - name: Set up Homebrew
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
         uses: Homebrew/actions/setup-homebrew@main
@@ -124,18 +132,18 @@ jobs:
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
         run: |
           set -e
-          # setup-homebrew 会把本仓库自动 tap 成一份干净 clone（还是旧版本），
-          # 所以把改好的 Formula 覆盖进它的 tap 目录，而不是 symlink 工作区。
+          # setup-homebrew 会把本仓库自动挂成 tap；若没挂（或挂的不是工作区）就手动接上
           TAP_DIR="$(brew --repository "$TAP_NAME" 2>/dev/null || true)"
-          if [ -z "$TAP_DIR" ] || [ ! -d "$TAP_DIR" ]; then
+          if [ -z "$TAP_DIR" ] || [ "$(realpath "$TAP_DIR" 2>/dev/null)" != "$(realpath "$GITHUB_WORKSPACE")" ]; then
             TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
+            rm -rf "$TAP_DIR"
             mkdir -p "$(dirname "$TAP_DIR")"
-            ln -sfn "$GITHUB_WORKSPACE" "$TAP_DIR"
+            ln -s "$GITHUB_WORKSPACE" "$TAP_DIR"
           fi
+          echo "tap dir: $TAP_DIR"
           for t in ${{ steps.bump.outputs.changed }}; do
             echo "::group::verify $t"
-            cp -f "Formula/${t}.rb" "$TAP_DIR/Formula/${t}.rb"
-            grep -E '^\s*version' "$TAP_DIR/Formula/${t}.rb"
+            brew info --formula "$TAP_NAME/$t" | head -1
             brew install --formula "$TAP_NAME/$t"
             brew test "$TAP_NAME/$t"
             echo "::endgroup::"
@@ -154,10 +162,6 @@ jobs:
           name: bump-dry-run.diff
           path: /tmp/bump.diff
 
-      - name: Commit and push
+      - name: Push
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
-        run: |
-          msg_tools=$(echo "${{ steps.bump.outputs.changed }}" | tr ' ' ',')
-          git add Formula/
-          git commit -m "chore(formulae): bump ${msg_tools} (${{ github.event_name }})"
-          git push origin "$(git symbolic-ref --short HEAD)"
+        run: git push origin "$(git symbolic-ref --short HEAD)"
