@@ -124,13 +124,20 @@ jobs:
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
         run: |
           set -e
-          TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
-          mkdir -p "$(dirname "$TAP_DIR")"
-          ln -sfn "$GITHUB_WORKSPACE" "$TAP_DIR"
+          # setup-homebrew 会把本仓库自动 tap 成一份干净 clone（还是旧版本），
+          # 所以把改好的 Formula 覆盖进它的 tap 目录，而不是 symlink 工作区。
+          TAP_DIR="$(brew --repository "$TAP_NAME" 2>/dev/null || true)"
+          if [ -z "$TAP_DIR" ] || [ ! -d "$TAP_DIR" ]; then
+            TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
+            mkdir -p "$(dirname "$TAP_DIR")"
+            ln -sfn "$GITHUB_WORKSPACE" "$TAP_DIR"
+          fi
           for t in ${{ steps.bump.outputs.changed }}; do
             echo "::group::verify $t"
+            cp -f "Formula/${t}.rb" "$TAP_DIR/Formula/${t}.rb"
+            grep -E '^\s*version' "$TAP_DIR/Formula/${t}.rb"
             brew install --formula "$TAP_NAME/$t"
-            brew test --formula "$TAP_NAME/$t"
+            brew test "$TAP_NAME/$t"
             echo "::endgroup::"
           done
 
