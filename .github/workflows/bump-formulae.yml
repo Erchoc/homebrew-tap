@@ -124,26 +124,31 @@ jobs:
           git add Formula/
           git commit -m "chore(formulae): bump ${msg_tools} (${{ github.event_name }})"
 
-      - name: Set up Homebrew
-        if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
-        uses: Homebrew/actions/setup-homebrew@main
-
+      # 不用 Homebrew/actions/setup-homebrew：它会把工作区重置成 origin/main 的干净 clone，
+      # 本地的 bump 提交和 checkout 的推送凭证都会被抹掉（装出来还是旧版、push 报 128）。
+      # 直接用 runner 自带的 linuxbrew，把工作区当本地 git 仓库 tap 进去，验证的就是刚提交的 Formula。
       - name: Verify changed formulae install
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ENV_HINTS: "1"
         run: |
           set -e
-          # setup-homebrew 会把本仓库自动挂成 tap；若没挂（或挂的不是工作区）就手动接上
-          TAP_DIR="$(brew --repository "$TAP_NAME" 2>/dev/null || true)"
-          if [ -z "$TAP_DIR" ] || [ "$(realpath "$TAP_DIR" 2>/dev/null)" != "$(realpath "$GITHUB_WORKSPACE")" ]; then
-            TAP_DIR="$(brew --repository)/Library/Taps/erchoc/homebrew-tap"
-            rm -rf "$TAP_DIR"
-            mkdir -p "$(dirname "$TAP_DIR")"
-            ln -s "$GITHUB_WORKSPACE" "$TAP_DIR"
+          if ! command -v brew >/dev/null 2>&1; then
+            if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            else
+              NONINTERACTIVE=1 bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+            fi
           fi
-          echo "tap dir: $TAP_DIR"
+          brew --version | head -1
+          brew untap "$TAP_NAME" >/dev/null 2>&1 || true
+          brew tap "$TAP_NAME" "file://$GITHUB_WORKSPACE"
           for t in ${{ steps.bump.outputs.changed }}; do
             echo "::group::verify $t"
-            brew info --formula "$TAP_NAME/$t" | head -1
+            grep -E '^\s*version' "$(brew --repository "$TAP_NAME")/Formula/${t}.rb"
             brew install --formula "$TAP_NAME/$t"
             brew test "$TAP_NAME/$t"
             echo "::endgroup::"
@@ -164,4 +169,4 @@ jobs:
 
       - name: Push
         if: ${{ env.DRY_RUN != 'true' && steps.bump.outputs.changed != '' }}
-        run: git push origin "$(git symbolic-ref --short HEAD)"
+        run: git push origin HEAD
