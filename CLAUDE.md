@@ -34,7 +34,7 @@ homebrew-tap/
 
 ## Updating a tool
 
-- **Homebrew**: 自动。`bump-formulae.yml` 每 6 小时扫一遍所有 Formula，把 `version` +
+- **Homebrew**: 自动。`bump-formulae.yml` 每天北京时间 08:10 / 20:10 扫一遍所有 Formula，把 `version` +
   `sha256` 对齐到源仓库的最新**正式版**（`/releases/latest`，beta 不进 brew），在 runner 上
   `brew install` + `brew test` 通过后才提交。源仓库若配置了 `TAP_DISPATCH_TOKEN`（对本仓库有
   contents:write 的 fine-grained PAT）并在 release.yml 里发 `repository_dispatch`
