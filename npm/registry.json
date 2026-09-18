@@ -1,0 +1,4 @@
+{
+  "_comment": "hub 侧自动同步 npm 的工具清单：tool → 源仓库 / npm 包名 / 包骨架目录（相对源仓库）。新工具加一行即可。",
+  "cb": { "repo": "Erchoc/chatbot", "package": "@erchoc/chatbot", "package_dir": "packages/npm" }
+}

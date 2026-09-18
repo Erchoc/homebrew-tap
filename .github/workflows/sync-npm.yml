@@ -1,0 +1,157 @@
+name: sync npm
+
+# hub 侧自动把每个工具的 npm 包对齐到源仓库的最新正式版。NPM_TOKEN 只存在本仓库，
+# 工具仓库不需要任何 npm 凭证。触发方式与 bump formulae 一致：
+#   - schedule：每天北京时间 08:10 / 20:10
+#   - repository_dispatch(release-published)：源仓库正式版发布后立刻同步
+#   - workflow_dispatch：手动（可指定 tool / tag / dry-run）
+# 已发布的版本会跳过（不是失败），所以定时跑是幂等的。
+
+on:
+  workflow_dispatch:
+    inputs:
+      tool:
+        description: 'Tool to sync (leave empty for all in npm/registry.json)'
+        required: false
+        type: string
+      tag:
+        description: 'Pin a release tag (default: latest stable release)'
+        required: false
+        type: string
+      dry_run:
+        description: 'npm publish --dry-run only'
+        required: false
+        type: boolean
+        default: false
+  repository_dispatch:
+    types: [release-published]
+  schedule:
+    # 北京时间 08:10 与 20:10（GitHub cron 用 UTC）
+    - cron: '10 0,12 * * *'
+
+concurrency:
+  group: sync-npm
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  TOOL: ${{ inputs.tool || github.event.client_payload.tool || '' }}
+  PIN_TAG: ${{ inputs.tag || github.event.client_payload.tag || '' }}
+  DRY_RUN: ${{ inputs.dry_run == true }}
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-latest
+    outputs:
+      tools: ${{ steps.list.outputs.tools }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: list
+        run: |
+          if [ -n "$TOOL" ]; then
+            tools=$(jq -c --arg t "$TOOL" '[$t]' npm/registry.json)
+          else
+            tools=$(jq -c 'keys | map(select(startswith("_") | not))' npm/registry.json)
+          fi
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+          echo "→ $tools"
+
+  publish:
+    name: ${{ matrix.tool }}
+    needs: plan
+    if: ${{ needs.plan.outputs.tools != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tool: ${{ fromJSON(needs.plan.outputs.tools) }}
+    steps:
+      - name: Checkout homebrew-tap (scripts + registry)
+        uses: actions/checkout@v5
+        with:
+          path: tap
+
+      - name: Resolve source repo + target tag
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          entry=$(jq -c --arg t "${{ matrix.tool }}" '.[$t]' tap/npm/registry.json)
+          [ "$entry" != "null" ] || { echo "::error::${{ matrix.tool }} not in npm/registry.json"; exit 1; }
+          repo=$(echo "$entry" | jq -r .repo)
+          pkg=$(echo "$entry" | jq -r .package)
+          pkg_dir=$(echo "$entry" | jq -r .package_dir)
+          if [ -n "$PIN_TAG" ]; then
+            tag="$PIN_TAG"
+          else
+            tag=$(gh api "repos/$repo/releases/latest" --jq .tag_name)
+          fi
+          version="${tag#v}"
+          {
+            echo "repo=$repo"; echo "pkg=$pkg"; echo "pkg_dir=$pkg_dir"; echo "tag=$tag"; echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+          echo "→ $pkg  ←  $repo@$tag  (dir: $pkg_dir)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Already on npm?
+        id: exists
+        run: |
+          if npm view "${{ steps.meta.outputs.pkg }}@${{ steps.meta.outputs.version }}" version >/dev/null 2>&1; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${{ steps.meta.outputs.pkg }}@${{ steps.meta.outputs.version }} already published — nothing to do."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "${{ steps.meta.outputs.pkg }}@${{ steps.meta.outputs.version }} not on npm yet — will publish."
+          fi
+
+      - name: Checkout source repo at tag
+        if: ${{ steps.exists.outputs.skip != 'true' }}
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ steps.meta.outputs.repo }}
+          ref: ${{ steps.meta.outputs.tag }}
+          path: caller
+
+      - name: Validate package skeleton
+        if: ${{ steps.exists.outputs.skip != 'true' }}
+        working-directory: caller
+        run: |
+          set -euo pipefail
+          PKG="${{ steps.meta.outputs.pkg_dir }}"
+          test -f "$PKG/package.template.json"       || { echo "::error::missing $PKG/package.template.json"; exit 1; }
+          test -f "$PKG/bin/${{ matrix.tool }}.js"   || { echo "::error::missing $PKG/bin/${{ matrix.tool }}.js"; exit 1; }
+
+      - name: Build package (download release assets + map to bins)
+        if: ${{ steps.exists.outputs.skip != 'true' }}
+        working-directory: caller
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node ../tap/npm/scripts/build-npm-package-from-release.mjs \
+            --tool    "${{ matrix.tool }}" \
+            --repo    "${{ steps.meta.outputs.repo }}" \
+            --release "${{ steps.meta.outputs.tag }}" \
+            --pkg-dir "${{ steps.meta.outputs.pkg_dir }}"
+          cd "${{ steps.meta.outputs.pkg_dir }}" && npm pack --dry-run
+
+      - name: npm publish
+        if: ${{ steps.exists.outputs.skip != 'true' }}
+        working-directory: caller/${{ steps.meta.outputs.pkg_dir }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "$DRY_RUN" = "true" ]; then
+            npm publish --access public --dry-run
+          else
+            npm publish --access public
+            echo "::notice::published ${{ steps.meta.outputs.pkg }}@${{ steps.meta.outputs.version }}"
+          fi

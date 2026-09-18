@@ -19,7 +19,9 @@ homebrew-tap/
 ├── docs/npm-convention.md                       ← @<org>/<tool> packaging spec
 └── .github/workflows/
     ├── test.yml                                 ← brew style/audit/install
-    └── publish-npm-reusable.yml                 ← called by tool repos via workflow_call
+    ├── bump-formulae.yml                        ← brew 自动跟正式版
+    ├── sync-npm.yml                             ← npm 自动跟正式版（npm/registry.json）
+    └── publish-npm-reusable.yml                 ← 可选：工具仓库自己触发发布
 ```
 
 ## Adding a tool to this family
@@ -29,8 +31,8 @@ homebrew-tap/
 2. **npm side** — copy `templates/npm/tool-template/` into the tool's **own**
    source repo as `npm/`. Follow `docs/npm-convention.md`. The tool repo's
    `publish-npm.yml` calls the reusable workflow from this repo.
-3. **Secrets** — each tool repo needs `NPM_TOKEN` (granular Automation token
-   with write access to `@erchoc`). Prefer a GitHub org-level secret.
+3. **npm 同步** — 在 `npm/registry.json` 加一行（源仓库 / 包名 / 包骨架目录），
+   `NPM_TOKEN` 只需配在本仓库（granular token，对 `@erchoc/*` 有 Read and write）。
 
 ## Updating a tool
 
@@ -39,8 +41,10 @@ homebrew-tap/
   `brew install` + `brew test` 通过后才提交。源仓库若配置了 `TAP_DISPATCH_TOKEN`（对本仓库有
   contents:write 的 fine-grained PAT）并在 release.yml 里发 `repository_dispatch`
   `release-published`，则发布后立刻 bump，不用等定时任务。手动：Actions → bump formulae → Run。
-- **npm**: nothing here — the tool repo's `publish-npm.yml` fires on its own
-  `release: published` event.
+- **npm**: 自动。`sync-npm.yml` 按 `npm/registry.json` 的清单，把每个包对齐到源仓库的最新
+  正式版（触发时机与 bump formulae 相同：定时 08:10 / 20:10、`repository_dispatch`、手动）。
+  `NPM_TOKEN` 只存在本仓库，工具仓库不需要任何 npm 凭证；已发布的版本自动跳过。
+  `publish-npm-reusable.yml` 仍保留给想自己掌控发布时机的工具仓库调用。
 
 ## 当前进度
 
